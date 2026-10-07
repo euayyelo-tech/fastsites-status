@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-07T14:27:32.671Z",
+  "checkedAt": "2026-10-07T14:28:06.351Z",
   "services": [
     {
       "id": "website",
@@ -47,13 +47,13 @@
       "id": "webmail",
       "name": "GetInbox web access",
       "state": "outage",
-      "detail": "Webmail front door content; not mailbox or SMTP delivery. Expected health response or content not found; checked twice."
+      "detail": "Webmail front door content; not mailbox or SMTP delivery. Public reachability check failed; checked twice."
     }
   ],
   "incidents": [
     {
       "title": "GetInbox web access independent check failed",
-      "date": "2026-10-07T14:27:32.671Z",
+      "date": "2026-10-07T14:28:06.351Z",
       "state": "investigating",
       "body": "The independent check failed twice. This indicates a monitored delivery problem, but does not by itself confirm that every customer function is unavailable."
     }
