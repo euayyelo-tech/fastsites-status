@@ -1,35 +1,53 @@
 {
-  "checkedAt": "2026-10-07T09:39:21.902Z",
+  "checkedAt": "2026-10-07T14:26:42.787Z",
   "services": [
     {
+      "id": "website",
       "name": "FastSites website",
       "state": "operational",
-      "detail": "Public website reachability · HTTP 200"
+      "detail": "Public website reachability and content. HTTP 200 and expected content confirmed."
     },
     {
+      "id": "client-websites",
+      "name": "Client websites",
+      "detail": "Independent customer delivery monitoring is not connected yet.",
+      "state": "unknown"
+    },
+    {
+      "id": "dashboard",
+      "name": "Dashboard & editor",
+      "detail": "An authenticated editing and publishing check is not configured.",
+      "state": "unknown"
+    },
+    {
+      "id": "billing",
+      "name": "Domains & billing",
+      "detail": "A safe domain and checkout check is not configured.",
+      "state": "unknown"
+    },
+    {
+      "id": "email",
+      "name": "Business email",
+      "detail": "Mail delivery is not independently verified by a webmail page check.",
+      "state": "unknown"
+    },
+    {
+      "id": "fastbot",
+      "name": "FastBot assistance",
+      "detail": "A dedicated assistance check is not configured.",
+      "state": "unknown"
+    },
+    {
+      "id": "api",
       "name": "FastSites API",
       "state": "operational",
-      "detail": "API health endpoint · HTTP 200"
+      "detail": "Public API health endpoint; not every API operation. HTTP 200 and expected content confirmed."
     },
     {
+      "id": "webmail",
       "name": "GetInbox web access",
       "state": "operational",
-      "detail": "Webmail front door reachability · HTTP 200"
-    },
-    {
-      "name": "Dashboard & editor",
-      "state": "unknown",
-      "detail": "Dedicated synthetic check not yet configured"
-    },
-    {
-      "name": "Domains & billing",
-      "state": "unknown",
-      "detail": "Dedicated synthetic check not yet configured"
-    },
-    {
-      "name": "FastBot assistance",
-      "state": "unknown",
-      "detail": "Dedicated synthetic check not yet configured"
+      "detail": "Webmail front door content; not mailbox or SMTP delivery. HTTP 200 and expected content confirmed."
     }
   ],
   "incidents": [],

@@ -1,12 +1,48 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>FastSites system status</title><style>
-*{box-sizing:border-box}body{margin:0;background:#f8f6fb;color:#291e39;font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}a{color:inherit}header{background:#281a3b;color:#fff;padding:18px max(22px,calc((100vw - 1020px)/2));display:flex;align-items:center;justify-content:space-between;gap:16px}header a{font-weight:850;font-size:21px;text-decoration:none;letter-spacing:-.06em}header a span{color:#c8a5f1}header small{font-size:12px;color:#d8c8e9}main{max-width:1020px;margin:auto;padding:70px 22px 100px}.eyebrow{color:#7129ca;font-size:12px;font-weight:850;letter-spacing:.16em;text-transform:uppercase}h1{font-size:clamp(38px,6vw,62px);line-height:1.04;letter-spacing:-.065em;margin:11px 0 19px}main>p{max-width:690px;color:#665973;font-size:18px}.overview{border:1px solid #dfc7ae;background:#fff6e8;color:#59431e;border-radius:18px;padding:25px;margin:38px 0 55px}.overview.good{border-color:#b7dacb;background:#eefaef;color:#1d593b}.overview h2{margin:0 0 4px;font-size:24px;letter-spacing:-.035em}.overview p{margin:0;font-size:13px}section{margin:42px 0}section h2{font-size:27px;letter-spacing:-.04em}.panel{background:#fff;border:1px solid #e2d9e9;border-radius:17px;overflow:hidden}.row{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:17px 22px;border-bottom:1px solid #eee8f2}.row:last-child{border:0}.row strong{display:block}.row small{display:block;color:#766a81}.state{font-size:13px;font-weight:800;white-space:nowrap}.state.operational{color:#287650}.state.degraded,.state.outage{color:#a34d26}.state.unknown{color:#776c81}.cols{display:grid;grid-template-columns:1fr 1fr;gap:26px}.notice{padding:21px;border-bottom:1px solid #eee8f2}.notice:last-child{border:0}.notice small{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#7333b6}.notice strong{display:block;margin:3px 0}.notice p{margin:0;color:#685d73;font-size:14px}.empty{padding:22px;color:#766a81;font-size:14px}.help{margin-top:54px;display:flex;align-items:center;justify-content:space-between;gap:20px;background:#29193e;color:#fff;border-radius:16px;padding:22px}.help a{background:#fff;color:#29193e;border-radius:8px;padding:9px 15px;text-decoration:none;font-weight:750;white-space:nowrap}footer{max-width:1020px;margin:auto;padding:0 22px 28px;color:#7a6e85;font-size:12px}@media(max-width:640px){main{padding-top:50px}.cols{grid-template-columns:1fr}.help{align-items:start;flex-direction:column}.row{align-items:start}.state{white-space:normal;text-align:right}}
-</style></head><body><header><a href="https://fastsites.app">Fast<span>Sites</span></a><small>Independent system status</small></header><main><span class="eyebrow">FastSites system status</span><h1>How everything is running.</h1><p>Public reachability checks and service updates, hosted separately from the FastSites website. A green check is shown only for a service with a recent successful check.</p><div class="overview" id="overview" role="status" aria-live="polite"><h2>Loading live status…</h2><p>Checking the latest monitor report.</p></div><section><h2>Services</h2><div class="panel" id="services"></div></section><div class="cols"><section><h2>Incident updates</h2><div class="panel" id="incidents"></div></section><section><h2>Planned maintenance</h2><div class="panel" id="maintenance"></div></section></div><div class="help"><span>Need help with your account?</span><a href="https://fastsites.app/contact">Contact support</a></div></main><footer>Checks run independently. Reachability alone does not verify every account or transaction. Times shown in UTC.</footer><script>
-const serviceBox=document.getElementById('services'),overview=document.getElementById('overview');
-const names=['FastSites website','FastSites API','GetInbox web access','Dashboard & editor','Domains & billing','FastBot assistance'];
-const label={operational:'Operational',degraded:'Degraded',outage:'Outage',unknown:'Unverified'};
-function item(parent,title,detail,state){const row=document.createElement('div');row.className='row';const left=document.createElement('div');const strong=document.createElement('strong');strong.textContent=title;left.append(strong);if(detail){const small=document.createElement('small');small.textContent=detail;left.append(small)}const right=document.createElement('span');right.className='state '+state;right.textContent=label[state]||label.unknown;row.append(left,right);parent.append(row)}
-function notice(parent,data,empty){parent.replaceChildren();if(!Array.isArray(data)||!data.length){const p=document.createElement('p');p.className='empty';p.textContent=empty;parent.append(p);return}for(const entry of data){const article=document.createElement('article');article.className='notice';const small=document.createElement('small');small.textContent=(entry.state||'Update')+' · '+(entry.date||'');const title=document.createElement('strong');title.textContent=entry.title||'Service update';const body=document.createElement('p');body.textContent=entry.body||'';article.append(small,title,body);parent.append(article)}}
-function render(data){const fresh=Date.now()-Date.parse(data?.checkedAt)<15*60*1000&&Date.parse(data?.checkedAt)<=Date.now()+60000;const services=fresh&&Array.isArray(data.services)?data.services:[];serviceBox.replaceChildren();for(const name of names){const service=services.find(s=>s.name===name)||{state:'unknown',detail:'Monitoring not configured'};item(serviceBox,name,service.detail,service.state)}const states=names.map(name=>services.find(s=>s.name===name)?.state||'unknown');const allGood=states.every(s=>s==='operational');overview.classList.toggle('good',allGood);overview.querySelector('h2').textContent=!fresh?'Live status unavailable':states.includes('outage')?'A service interruption is reported':states.includes('degraded')?'Some services are degraded':states.includes('unknown')?'Some services are not yet verified':'All monitored services operational';overview.querySelector('p').textContent=fresh?'Last checked '+new Date(data.checkedAt).toLocaleString('en-GB',{timeZone:'UTC'})+' UTC':'The last report is missing or stale; no operational claim is being made.';notice(document.getElementById('incidents'),data?.incidents,fresh?'No incidents in the current report.':'Incident history temporarily unavailable.');notice(document.getElementById('maintenance'),data?.maintenance,fresh?'No maintenance in the current report.':'Maintenance history temporarily unavailable.')}
-fetch('./status.json',{cache:'no-store'}).then(r=>r.ok?r.json():Promise.reject()).then(render).catch(()=>render(null));setInterval(()=>fetch('./status.json',{cache:'no-store'}).then(r=>r.ok?r.json():Promise.reject()).then(render).catch(()=>render(null)),60000);
-</script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Independent FastSites service checks, client website monitoring coverage, incidents and maintenance.">
+  <title>FastSites system status</title>
+  <link rel="stylesheet" href="./status.css">
+</head>
+<body>
+  <header><a class="brand" href="https://fastsites.app">Fast<span>Sites</span></a><span class="independent"><i aria-hidden="true"></i> Independent system status</span></header>
+  <main data-status-version="independent-client-sites-v2">
+    <section class="hero" id="overview" data-state="unknown" aria-labelledby="status-title">
+      <div class="hero-copy">
+        <span class="eyebrow">Clear updates. No guesswork.</span>
+        <div class="badge"><i aria-hidden="true"></i><span id="status-label">Checking report</span></div>
+        <h1 id="status-title">Loading live status…</h1>
+        <p id="status-description">Checking the latest independent monitor report.</p>
+        <p class="checked" id="checked" role="status" aria-live="polite">No operational claim until a recent report is verified.</p>
+      </div>
+      <div class="signal" aria-hidden="true">
+        <div class="signal-ring"></div>
+        <svg viewBox="0 0 120 120" fill="none"><path d="M24 62h17l10-26 20 49 10-23h15" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Service pulse</span>
+      </div>
+    </section>
+    <section aria-labelledby="services-title">
+      <div class="section-heading"><div><span class="eyebrow">Platform &amp; delivery</span><h2 id="services-title">Services at a glance.</h2></div><span class="refresh-note">Refreshes every minute</span></div>
+      <div class="panel" id="services"></div>
+    </section>
+    <aside class="coverage" aria-labelledby="coverage-title">
+      <span class="eyebrow">Client website coverage</span>
+      <h2 id="coverage-title">Your website deserves its own check.</h2>
+      <p>The client-websites component reports an owner-controlled delivery test when one is connected. It is a sample of the publishing path, not a promise that every customer domain is healthy. Until that check exists, coverage stays unverified.</p>
+      <p>Cloudflare network status is useful context, but is not proof that FastSites client websites or email delivery are working. <a href="https://www.cloudflarestatus.com/" target="_blank" rel="noopener noreferrer">View Cloudflare status ↗</a></p>
+    </aside>
+    <div class="columns">
+      <section><span class="eyebrow">What we're tracking</span><h2>Incident updates.</h2><div class="panel" id="incidents"></div></section>
+      <section><span class="eyebrow">Looking ahead</span><h2>Planned maintenance.</h2><div class="panel" id="maintenance"></div></section>
+    </div>
+    <section class="help"><div><h2>Something not working for you?</h2><p>Individual account or website issues can occur even when a public check is online.</p></div><a class="button" href="https://fastsites.app/contact">Contact support <span aria-hidden="true">↗</span></a></section>
+    <noscript><p class="coverage">JavaScript is required to load the current report. No live service status is being claimed.</p></noscript>
+  </main>
+  <footer>© 2026 FastSites. Public checks run separately from the FastSites server. Five-minute checks are best-effort, not a real-time uptime guarantee. Times shown in UTC.</footer>
+  <script type="module" src="./status-page.mjs"></script>
+</body>
+</html>

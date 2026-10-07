@@ -1,7 +1,10 @@
 name: Independent service status
 on:
+  push:
+    branches: [main]
+    paths-ignore: ['site/status.json']
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '2-59/5 * * * *'
   workflow_dispatch:
 permissions:
   contents: write
@@ -13,6 +16,7 @@ concurrency:
 jobs:
   monitor-and-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -21,7 +25,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Validate monitoring model
+        run: node --test scripts/status.test.mjs
       - name: Check public services
+        env:
+          CLIENT_SITE_CHECK_URL: ${{ secrets.CLIENT_SITE_CHECK_URL }}
+          CLIENT_SITE_CONTENT_MARKER: ${{ secrets.CLIENT_SITE_CONTENT_MARKER }}
+          CLIENT_CUSTOM_DOMAIN_CHECK_URL: ${{ secrets.CLIENT_CUSTOM_DOMAIN_CHECK_URL }}
+          CLIENT_CUSTOM_DOMAIN_CONTENT_MARKER: ${{ secrets.CLIENT_CUSTOM_DOMAIN_CONTENT_MARKER }}
         run: node scripts/monitor.mjs
       - name: Save latest report
         run: |
