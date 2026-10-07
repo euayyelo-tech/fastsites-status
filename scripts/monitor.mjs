@@ -16,6 +16,12 @@ async function check({ name, url, good, detail }) {
 const services = await Promise.all(checks.map(check));
 for (const name of ['Dashboard & editor', 'Domains & billing', 'FastBot assistance']) services.push({ name, state: 'unknown', detail: 'Dedicated synthetic check not yet configured' });
 const updates = JSON.parse(await readFile(new URL('../site/updates.json', import.meta.url), 'utf8'));
-const report = { checkedAt: new Date().toISOString(), services, incidents: updates.incidents ?? [], maintenance: updates.maintenance ?? [] };
+const probeIncident = services.filter(service => service.state === 'outage').map(service => ({
+  title: `${service.name} reachability check failed`,
+  date: new Date().toISOString(),
+  body: 'The independent public check could not confirm reachability. We are investigating; this does not by itself confirm that all customer functions are unavailable.',
+  state: 'investigating',
+}));
+const report = { checkedAt: new Date().toISOString(), services, incidents: [...probeIncident, ...(updates.incidents ?? [])], maintenance: updates.maintenance ?? [] };
 await writeFile(new URL('../site/status.json', import.meta.url), JSON.stringify(report, null, 2) + '\n');
 console.log(services.map(service => `${service.name}: ${service.state}`).join('\n'));
