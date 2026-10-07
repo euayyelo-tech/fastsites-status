@@ -1,0 +1,37 @@
+{
+  "checkedAt": "2026-10-07T09:39:21.902Z",
+  "services": [
+    {
+      "name": "FastSites website",
+      "state": "operational",
+      "detail": "Public website reachability · HTTP 200"
+    },
+    {
+      "name": "FastSites API",
+      "state": "operational",
+      "detail": "API health endpoint · HTTP 200"
+    },
+    {
+      "name": "GetInbox web access",
+      "state": "operational",
+      "detail": "Webmail front door reachability · HTTP 200"
+    },
+    {
+      "name": "Dashboard & editor",
+      "state": "unknown",
+      "detail": "Dedicated synthetic check not yet configured"
+    },
+    {
+      "name": "Domains & billing",
+      "state": "unknown",
+      "detail": "Dedicated synthetic check not yet configured"
+    },
+    {
+      "name": "FastBot assistance",
+      "state": "unknown",
+      "detail": "Dedicated synthetic check not yet configured"
+    }
+  ],
+  "incidents": [],
+  "maintenance": []
+}
