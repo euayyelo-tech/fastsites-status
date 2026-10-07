@@ -1,6 +1,8 @@
 # FastSites independent status page
 
-This public site is intended for GitHub Pages, outside the FastSites VPS. GitHub Actions checks public reachability on a five-minute best-effort schedule and deploys `site/status.json`. Scheduling can be delayed by GitHub; this is not a real-time uptime SLA. The browser rejects reports older than 15 minutes or more than one minute into the future. Content validation and one retry supplement HTTP checks; challenges and rate limiting remain unverified rather than falsely offline.
+This public site is hosted by GitHub Pages at **https://euayyelo-tech.github.io/fastsites-status/**, outside the FastSites VPS. Publishing was activated and verified on 7 October 2026, including successful workflow deployments and a fresh report consumed by staging. The custom `status.fastsites.app` domain still requires the DNS handoff below.
+
+GitHub Actions checks public reachability on a five-minute best-effort schedule and deploys `site/status.json`. Scheduling can be delayed by GitHub; this is not a real-time uptime SLA. The browser rejects reports older than 15 minutes or more than one minute into the future. Content validation and one retry supplement HTTP checks; challenges and rate limiting remain unverified rather than falsely offline.
 
 Only three public surfaces have configured checks: the FastSites website, public API health endpoint, and GetInbox webmail front door. Client websites, dashboard/editor, domains/billing, actual business-email delivery, and FastBot intentionally remain unverified until safe synthetic checks exist. A green site-wide claim is suppressed. Cloudflare global status never substitutes for customer-site health.
 
@@ -20,4 +22,4 @@ Verify the custom host over HTTPS, the JSON timestamp, scheduled workflow runs, 
 
 ## Checks
 
-`node --test scripts/status.test.mjs` exercises probes and the public state model without network requests. `FASTBOT_PLAYWRIGHT` should point to the existing installed Playwright `index.mjs` for `node scripts/verify-browser.mjs`. `node scripts/verify-live.mjs` checks deployed Pages assets and report freshness. Its expected unconfigured components must be updated when approved synthetic monitoring is connected.
+`node --test scripts/status.test.mjs` exercises probes and the public state model without network requests. `FASTBOT_PLAYWRIGHT` should point to the existing installed Playwright `index.mjs` for `node scripts/verify-browser.mjs`. `node scripts/verify-live.mjs` checks deployed Pages assets and report freshness. `node scripts/verify-integration.mjs` checks staging consumption and independent rendering with isolated FastSites-origin request failures; it also verifies the recorded frontend branch heads without changing them. Expected unconfigured components and release heads in these scripts must be reviewed when approved monitoring or a new frontend release is connected.
