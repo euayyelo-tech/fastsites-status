@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-08T13:03:24.691Z",
+  "checkedAt": "2026-10-08T19:14:50.305Z",
   "services": [
     {
       "id": "website",
@@ -53,7 +53,7 @@
   "incidents": [
     {
       "title": "GetInbox web access independent check failed",
-      "date": "2026-10-08T13:03:24.691Z",
+      "date": "2026-10-08T19:14:50.305Z",
       "state": "investigating",
       "body": "The independent check failed twice. This indicates a monitored delivery problem, but does not by itself confirm that every customer function is unavailable."
     }
