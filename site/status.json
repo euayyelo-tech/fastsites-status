@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-09T12:22:29.936Z",
+  "checkedAt": "2026-10-09T13:29:19.904Z",
   "services": [
     {
       "id": "website",
@@ -11,7 +11,7 @@
       "id": "client-websites",
       "name": "Client websites",
       "state": "operational",
-      "detail": "Customer subdomain and custom-domain delivery canaries. Expected content confirmed. This is a sample, not a check of every customer website."
+      "detail": "The count of customer websites is not deployed on the live API yet. Test site and its custom domain checked independently: expected content confirmed."
     },
     {
       "id": "dashboard",
@@ -22,8 +22,8 @@
     {
       "id": "billing",
       "name": "Domains & billing",
-      "detail": "A safe domain and checkout check is not configured.",
-      "state": "unknown"
+      "state": "unknown",
+      "detail": "Price list, card payments (Stripe and Paddle) and the domain registrar each answer a read-only question; no payment or registration is made. The check is not deployed on the live site yet, so health cannot be verified."
     },
     {
       "id": "email",
@@ -46,8 +46,8 @@
     {
       "id": "webmail",
       "name": "GetInbox web access",
-      "state": "unknown",
-      "detail": "Webmail front door content; not mailbox or SMTP delivery. Public access is restricted before launch, so health cannot be verified from outside."
+      "state": "operational",
+      "detail": "Webmail front door content; not mailbox or SMTP delivery. HTTP 200 and expected content confirmed."
     }
   ],
   "incidents": [],
