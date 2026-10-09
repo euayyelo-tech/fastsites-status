@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-09T02:49:17.309Z",
+  "checkedAt": "2026-10-09T08:40:40.410Z",
   "services": [
     {
       "id": "website",
@@ -10,8 +10,8 @@
     {
       "id": "client-websites",
       "name": "Client websites",
-      "detail": "Independent customer delivery monitoring is not connected yet.",
-      "state": "unknown"
+      "state": "operational",
+      "detail": "Customer subdomain delivery canary; custom-domain delivery is not monitored. Expected content confirmed. This is a sample, not a check of every customer website."
     },
     {
       "id": "dashboard",
