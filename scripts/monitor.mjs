@@ -12,7 +12,9 @@ const publicChecks = [
   // `allowGate`: before launch the public sees a holding page. Serving it IS what the public gets, so it counts as reachable.
   { id: 'website', name: 'FastSites website', url: 'https://fastsites.app', marker: 'FastSites', allowGate: true, detail: 'Public website reachability and content' },
   { id: 'api', name: 'FastSites API', url: 'https://api.fastsites.app/health', json: true, detail: 'Public API health endpoint; not every API operation' },
-  { id: 'webmail', name: 'GetInbox web access', url: 'https://app.getinbox.co.uk/mail/demo', marker: 'GetInbox', detail: 'Webmail front door content; not mailbox or SMTP delivery' },
+  // `previewGate`: before launch this host only shows the real page to the owner's preview cookie (fs_preview, the
+  // site's COMING_SOON_BYPASS word, kept here as the GATE_PREVIEW_WORD secret). With it the monitor sees what the owner sees.
+  { id: 'webmail', name: 'GetInbox web access', url: 'https://app.getinbox.co.uk/mail/demo', marker: 'GetInbox', previewGate: true, detail: 'Webmail front door content; not mailbox or SMTP delivery' },
   // An unauthenticated request must be refused with the API's own JSON error: proof that the sign-in layer is up.
   { id: 'dashboard', name: 'Dashboard & editor', url: 'https://api.fastsites.app/projects', expectStatus: 401, marker: 'Authorization', detail: 'Sign-in API refuses an unauthenticated request correctly; editing and publishing are not exercised' },
   { id: 'fastbot', name: 'FastBot assistance', url: 'https://api.fastsites.app/kb/quick-questions?audience=sales', jsonArray: 'nodes', detail: 'Chat knowledge service responds; the quality of an individual answer is not tested' },
@@ -73,7 +75,7 @@ export async function probe(check, { fetchImpl = fetch, pause = wait } = {}) {
     try {
       const response = await fetchImpl(check.url, {
         method: 'GET', redirect: 'follow', signal: AbortSignal.timeout(12000),
-        headers: { 'User-Agent': 'FastSites-independent-status/2.0' },
+        headers: { 'User-Agent': 'FastSites-independent-status/2.0', ...(check.cookie ? { Cookie: check.cookie } : {}) },
       });
       // The pre-launch gate (soft launch or coming soon) answers 200 with a holding page for visitors it does not know.
       const gate = response.headers?.get?.('x-fs-gate');
@@ -205,7 +207,10 @@ const worst = parts => ['outage', 'unknown', 'degraded', 'operational'].find(s =
 
 export async function buildReport({ env = process.env, updates = { incidents: [], maintenance: [] }, now = Date.now(), ...deps } = {}) {
   if (![updates?.incidents, updates?.maintenance].every(xs => Array.isArray(xs) && xs.length <= 100 && xs.every(validNotice))) throw new Error('Invalid public incident/maintenance notices');
-  const checked = await Promise.all([...publicChecks.map(check => probe(check, deps)), probeMail(mailCheck, deps)]);
+  // Only a plain word is ever turned into a cookie; anything else is ignored and the gate is reported as before.
+  const preview = /^[A-Za-z0-9_-]{1,64}$/.test(env.GATE_PREVIEW_WORD ?? '') ? `fs_preview=${env.GATE_PREVIEW_WORD}` : null;
+  const withPreview = check => (check.previewGate && preview ? { ...check, cookie: preview } : check);
+  const checked = await Promise.all([...publicChecks.map(check => probe(withPreview(check), deps)), probeMail(mailCheck, deps)]);
   // Client websites: the count of every published site, plus (when configured) an owner's test site checked from here.
   const client = canary(env.CLIENT_SITE_CHECK_URL, env.CLIENT_SITE_CONTENT_MARKER);
   const custom = canary(env.CLIENT_CUSTOM_DOMAIN_CHECK_URL, env.CLIENT_CUSTOM_DOMAIN_CONTENT_MARKER);

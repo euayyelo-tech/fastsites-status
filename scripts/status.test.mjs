@@ -178,6 +178,25 @@ test('the pre-launch gate is reachable for the website but never an outage for a
   assert.equal(report.services.find(s => s.id === 'webmail').state, 'unknown');
   assert.equal(report.incidents.length, 0);
 });
+test('with the preview word, webmail is checked behind the pre-launch gate; the word never reaches the report', async () => {
+  const seen = [];
+  const gateUnlessCookie = async (url, init) => {
+    const cookie = init?.headers?.Cookie;
+    if (String(url).includes('getinbox')) { seen.push(cookie ?? null); return cookie === 'fs_preview=secretword' ? new Response('GetInbox webmail') : gated()(); }
+    return healthyFetch(url);
+  };
+  const report = await buildReport({ ...options, env: { GATE_PREVIEW_WORD: 'secretword' }, fetchImpl: gateUnlessCookie });
+  assert.equal(report.services.find(s => s.id === 'webmail').state, 'operational');
+  assert.ok(!JSON.stringify(report).includes('secretword'));
+  assert.ok(seen.every(c => c === 'fs_preview=secretword'), 'only the webmail check carries the cookie');
+  const healthyCalls = [];
+  await buildReport({ ...options, env: { GATE_PREVIEW_WORD: 'secretword' }, fetchImpl: async (url, init) => { if (!String(url).includes('getinbox')) healthyCalls.push(init?.headers?.Cookie); return gateUnlessCookie(url, init); } });
+  assert.ok(healthyCalls.every(c => c === undefined), 'no other check is sent the cookie');
+  for (const word of ['', 'two words', 'x;evil=1']) {
+    const r = await buildReport({ ...options, env: { GATE_PREVIEW_WORD: word }, fetchImpl: gateUnlessCookie });
+    assert.equal(r.services.find(s => s.id === 'webmail').state, 'unknown', `ignored: ${JSON.stringify(word)}`);
+  }
+});
 test('the dashboard check needs the API to refuse an unauthenticated request in its own words', async () => {
   const dash = { ...check, id: 'dashboard', url: 'https://api.example/projects', expectStatus: 401, marker: 'Authorization' };
   const body = '{"error":"Missing or invalid Authorization header"}';
