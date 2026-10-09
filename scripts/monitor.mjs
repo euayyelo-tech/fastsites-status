@@ -16,6 +16,11 @@ const publicChecks = [
   // An unauthenticated request must be refused with the API's own JSON error: proof that the sign-in layer is up.
   { id: 'dashboard', name: 'Dashboard & editor', url: 'https://api.fastsites.app/projects', expectStatus: 401, marker: 'Authorization', detail: 'Sign-in API refuses an unauthenticated request correctly; editing and publishing are not exercised' },
   { id: 'fastbot', name: 'FastBot assistance', url: 'https://api.fastsites.app/kb/quick-questions?audience=sales', jsonArray: 'nodes', detail: 'Chat knowledge service responds; the quality of an individual answer is not tested' },
+  // The website asks each part one read-only question and answers ok/down/off per part (fastsites-frontend
+  // src/app/api/status/billing/route.ts). A 404 means that endpoint is not deployed there yet, not that billing is down.
+  { id: 'billing', name: 'Domains & billing', url: 'https://fastsites.app/api/status/billing', missingIsUnknown: true,
+    parts: { prices: 'Price list', stripe: 'Stripe', paddle: 'Paddle', domains: 'Domain registrar' },
+    detail: 'Price list, card payments (Stripe and Paddle) and the domain registrar each answer a read-only question; no payment or registration is made' },
 ];
 // Mail servers: connect, read the greeting. No login and no message is sent.
 const mailCheck = {
@@ -41,6 +46,25 @@ async function boundedBody(response) {
   } finally { await reader.cancel().catch(() => {}); }
 }
 
+const listed = names => names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];
+
+// A per-part health answer, { parts: { name: 'ok' | 'down' | 'off' } }, read against the parts the check expects.
+export function partsVerdict(body, labels) {
+  let parts;
+  try { parts = JSON.parse(body)?.parts; } catch {}
+  const names = Object.keys(labels);
+  if (!parts || typeof parts !== 'object' || !names.every(n => ['ok', 'down', 'off'].includes(parts[n]))) {
+    return { state: 'outage', detail: 'Expected health response not found' };
+  }
+  const where = want => names.filter(n => parts[n] === want).map(n => labels[n]);
+  const [ok, down, off] = [where('ok'), where('down'), where('off')];
+  const answered = ok.length ? `; ${listed(ok)} answered` : '';
+  if (down.length && !ok.length) return { state: 'outage', detail: `${listed(down)} did not answer` };
+  if (down.length) return { state: 'degraded', detail: `${listed(down)} did not answer${answered}` };
+  if (off.length) return { state: 'unknown', detail: `${listed(off)} ${off.length > 1 ? 'are' : 'is'} not set up on the live site, so cannot be checked${answered}` };
+  return { state: 'operational', detail: 'Every part answered' };
+}
+
 export async function probe(check, { fetchImpl = fetch, pause = wait } = {}) {
   const attempts = [];
   const expected = check.expectStatus ?? 200;
@@ -58,6 +82,10 @@ export async function probe(check, { fetchImpl = fetch, pause = wait } = {}) {
         if (check.allowGate) return { id: check.id, name: check.name, state: 'operational', detail: `${check.detail}. HTTP 200: the public pre-launch page is being served.` };
         return { id: check.id, name: check.name, state: 'unknown', detail: `${check.detail}. Public access is restricted before launch, so health cannot be verified from outside.` };
       }
+      if (check.missingIsUnknown && response.status === 404) {
+        await response.body?.cancel();
+        return { id: check.id, name: check.name, state: 'unknown', detail: `${check.detail}. The check is not deployed on the live site yet, so health cannot be verified.` };
+      }
       if (response.status !== expected && [401, 403, 429].includes(response.status)) {
         await response.body?.cancel();
         attempts.push({ state: 'unknown', detail: 'Probe blocked or rate-limited; service health cannot be verified' });
@@ -68,6 +96,14 @@ export async function probe(check, { fetchImpl = fetch, pause = wait } = {}) {
         const body = await boundedBody(response);
         if (/cf-chl-|Just a moment\.\.\.|Attention Required!/.test(body)) {
           attempts.push({ state: 'unknown', detail: 'Challenge page returned; service health cannot be verified' });
+          continue;
+        }
+        if (check.parts) {
+          const verdict = partsVerdict(body, check.parts);
+          if (verdict.state === 'operational') return { id: check.id, name: check.name, state: attempts.length ? 'degraded' : 'operational', detail: `${check.detail}. ${attempts.length ? 'Initial check failed; retry succeeded.' : `${verdict.detail}.`}` };
+          // Some parts down, or not set up, is the site's own considered answer: report it as is. Nothing working is retried once.
+          if (verdict.state !== 'outage') return { id: check.id, name: check.name, state: verdict.state, detail: `${check.detail}. ${verdict.detail}.` };
+          attempts.push(verdict);
           continue;
         }
         let valid = false;

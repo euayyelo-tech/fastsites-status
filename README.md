@@ -13,7 +13,7 @@ Checks and what each one covers:
 - **Business email** - the mail server greets on IMAP (993) and SMTP (587). No login, no message sent, delivery NOT tested.
 - **GetInbox web access** - the webmail front door content. While the app host is behind its coming-soon gate, a gated response is reported as **unverified**, never as an outage: it is a pre-launch curtain, not a failure.
 - **Client websites** - unverified until the owner-controlled canary secrets are set (below).
-- **Domains & billing** - unverified. There is no safe public check that exercises checkout or domain lookup, and none is claimed.
+- **Domains & billing** - `https://fastsites.app/api/status/billing` asks the price list, Stripe, Paddle and the domain registrar one read-only question each and answers `ok`, `down` or `off` per part (answers are shared for a minute on the site). Every part ok is Online; some down is Degraded; nothing that is set up answering is Offline; a part that is `off` (not set up on the live site) keeps the line unverified. A 404 means the endpoint is not deployed there yet and is unverified, not an outage. No payment or registration is ever made.
 
 A green site-wide claim stays suppressed while any component is unverified. Cloudflare global status never substitutes for customer-site health.
 
