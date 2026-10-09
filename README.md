@@ -2,9 +2,20 @@
 
 This public site is hosted by GitHub Pages at **https://euayyelo-tech.github.io/fastsites-status/**, outside the FastSites VPS. Publishing was activated and verified on 7 October 2026, including successful workflow deployments and a fresh report consumed by staging. The custom `status.fastsites.app` domain still requires the DNS handoff below.
 
-GitHub Actions checks public reachability on a five-minute best-effort schedule and deploys `site/status.json`. Scheduling can be delayed by GitHub; this is not a real-time uptime SLA. The browser rejects reports older than 15 minutes or more than one minute into the future. Content validation and one retry supplement HTTP checks; challenges and rate limiting remain unverified rather than falsely offline.
+GitHub Actions checks public reachability and deploys `site/status.json` about every five minutes. GitHub's own timer is best effort and was running only every 4 to 6 hours, so each run waits four minutes and then starts the next one itself (`workflow_dispatch` with the built-in token); the cron line remains as a fallback if the chain is ever broken, and starting the workflow by hand restarts it. This is still not a real-time uptime SLA. The browser rejects reports older than 15 minutes or more than one minute into the future. Content validation and one retry supplement HTTP checks; challenges and rate limiting remain unverified rather than falsely offline.
 
-Only three public surfaces have configured checks: the FastSites website, public API health endpoint, and GetInbox webmail front door. Client websites, dashboard/editor, domains/billing, actual business-email delivery, and FastBot intentionally remain unverified until safe synthetic checks exist. A green site-wide claim is suppressed. Cloudflare global status never substitutes for customer-site health.
+Checks and what each one covers:
+
+- **FastSites website** - the public site answers 200 with expected content. Before launch the soft-launch holding page counts as reachable, because that is what the public gets.
+- **FastSites API** - `/health` answers `ok: true`.
+- **Dashboard & editor** - the sign-in API refuses an unauthenticated request in its own words (HTTP 401). Editing and publishing are NOT exercised.
+- **FastBot assistance** - the chat knowledge service returns its list of nodes. The quality of an answer is NOT tested.
+- **Business email** - the mail server greets on IMAP (993) and SMTP (587). No login, no message sent, delivery NOT tested.
+- **GetInbox web access** - the webmail front door content. While the app host is behind its coming-soon gate, a gated response is reported as **unverified**, never as an outage: it is a pre-launch curtain, not a failure.
+- **Client websites** - unverified until the owner-controlled canary secrets are set (below).
+- **Domains & billing** - unverified. There is no safe public check that exercises checkout or domain lookup, and none is claimed.
+
+A green site-wide claim stays suppressed while any component is unverified. Cloudflare global status never substitutes for customer-site health.
 
 Incident and maintenance notices are edited in `site/updates.json`, committed and deployed by manually running the workflow. Do not put private account details or secrets in that file. The monitor does not test real transactions or mailbox delivery.
 

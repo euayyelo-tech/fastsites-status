@@ -4,19 +4,22 @@ on:
     branches: [main]
     paths-ignore: ['site/status.json']
   schedule:
+    # A fallback only. GitHub runs this timer when it chooses, sometimes hours apart,
+    # so the run below starts the next one itself (see the last step).
     - cron: '2-59/5 * * * *'
   workflow_dispatch:
 permissions:
   contents: write
   pages: write
   id-token: write
+  actions: write
 concurrency:
   group: status-pages
   cancel-in-progress: false
 jobs:
   monitor-and-deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -39,10 +42,24 @@ jobs:
           git config user.name "FastSites status bot"
           git config user.email "status-bot@users.noreply.github.com"
           git add site/status.json
-          git diff --cached --quiet || (git commit -m "Update status report" && git push)
+          # Commit only when something other than the timestamp changed, so history is not 280 commits a day.
+          git diff --cached --quiet -I'"checkedAt"' || (git commit -m "Update status report" && git push)
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
       - id: deployment
         uses: actions/deploy-pages@v4
+      # GitHub's scheduler is best effort and was running this every 4 to 6 hours, but the
+      # page ignores any report older than 15 minutes. So each run waits, then starts the
+      # next one itself. workflow_dispatch is allowed with the built-in token. If a run is
+      # already queued (the cron fired, say) it will carry the chain on, so do not start another.
+      - name: Start the next check
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          sleep 240
+          waiting=$(gh run list --workflow status.yml --json status --jq '[.[] | select(.status=="queued" or .status=="pending" or .status=="waiting" or .status=="requested")] | length')
+          if [ "$waiting" = "0" ]; then gh workflow run status.yml --ref main; else echo "A run is already waiting; it will continue the chain."; fi
