@@ -178,7 +178,8 @@ export async function probeSites({ fetchImpl = fetch, pause = wait, now = Date.n
     try {
       const response = await fetchImpl(sitesCount.url, { method: 'GET', signal: AbortSignal.timeout(12000), headers: { 'User-Agent': 'FastSites-independent-status/2.0' } });
       if (response.headers?.get?.('x-fs-gate')) { await response.body?.cancel(); return { state: 'unknown', detail: 'The count of customer websites is restricted before launch' }; }
-      if (response.status === 404) { await response.body?.cancel(); return { state: 'unknown', detail: 'The count of customer websites is not deployed on the live API yet' }; }
+      // `noClaim`: says nothing either way, so a passing test site is not held back by a count that does not exist yet.
+      if (response.status === 404) { await response.body?.cancel(); return { state: 'unknown', noClaim: true, detail: 'The count of customer websites is not deployed on the live API yet' }; }
       if (response.status !== 200) { await response.body?.cancel(); return { state: 'outage', detail: `Count of customer websites unavailable (HTTP ${response.status})` }; }
       return sitesVerdict(await boundedBody(response), now);
     } catch { return { state: 'outage', detail: 'Count of customer websites unreachable' }; }
@@ -216,7 +217,8 @@ export async function buildReport({ env = process.env, updates = { incidents: []
     const state = worst(results);
     clientParts.push({ state, detail: `${custom ? 'Test site and its custom domain' : 'Test site'} checked independently: ${state === 'operational' ? 'expected content confirmed' : 'expected content not confirmed'}` });
   }
-  checked.push({ id: 'client-websites', name: 'Client websites', state: worst(clientParts), detail: `${clientParts.map(p => p.detail).join('. ')}.` });
+  const claims = clientParts.filter(p => !p.noClaim);
+  checked.push({ id: 'client-websites', name: 'Client websites', state: worst(claims.length ? claims : clientParts), detail: `${clientParts.map(p => p.detail).join('. ')}.` });
   const services = components.map(expected => checked.find(s => s.id === expected.id) ?? { ...expected, state: 'unknown' });
   const previous = new Map((updates.incidents ?? []).map(i => [i.title, i]));
   const automatic = services.filter(s => s.state === 'outage').map(s => {

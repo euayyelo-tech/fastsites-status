@@ -108,6 +108,14 @@ test('customer delivery checks keep URLs and content markers private', async () 
   assert.ok(!JSON.stringify(report).includes(env.CLIENT_SITE_CHECK_URL));
   assert.ok(!JSON.stringify(report).includes(env.CLIENT_SITE_CONTENT_MARKER));
 });
+test('a count that is not deployed yet neither blocks a passing test site nor stands in for one', async () => {
+  const noCount = async url => String(url).endsWith('/status/sites') ? new Response('', { status: 404 }) : healthyFetch(url);
+  const env = { CLIENT_SITE_CHECK_URL: 'https://tenant.example', CLIENT_SITE_CONTENT_MARKER: 'EXPECTED' };
+  const withSite = (await buildReport({ ...options, env, fetchImpl: noCount })).services.find(s => s.id === 'client-websites');
+  assert.equal(withSite.state, 'operational');
+  assert.match(withSite.detail, /not deployed on the live API yet/);
+  assert.equal((await buildReport({ ...options, fetchImpl: noCount })).services.find(s => s.id === 'client-websites').state, 'unknown');
+});
 test('custom-domain canary failures affect the customer delivery component', async () => {
   const env = { CLIENT_SITE_CHECK_URL: 'https://tenant.example', CLIENT_SITE_CONTENT_MARKER: 'EXPECTED', CLIENT_CUSTOM_DOMAIN_CHECK_URL: 'https://custom.example', CLIENT_CUSTOM_DOMAIN_CONTENT_MARKER: 'EXPECTED' };
   const report = await buildReport({ ...options, env, fetchImpl: async url => String(url).includes('custom.example') ? new Response('', { status: 503 }) : healthyFetch(url) });
