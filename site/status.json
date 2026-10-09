@@ -1,11 +1,11 @@
 {
-  "checkedAt": "2026-10-08T23:45:48.908Z",
+  "checkedAt": "2026-10-09T02:49:17.309Z",
   "services": [
     {
       "id": "website",
       "name": "FastSites website",
       "state": "operational",
-      "detail": "Public website reachability and content. HTTP 200 and expected content confirmed."
+      "detail": "Public website reachability and content. HTTP 200: the public pre-launch page is being served."
     },
     {
       "id": "client-websites",
@@ -16,8 +16,8 @@
     {
       "id": "dashboard",
       "name": "Dashboard & editor",
-      "detail": "An authenticated editing and publishing check is not configured.",
-      "state": "unknown"
+      "state": "operational",
+      "detail": "Sign-in API refuses an unauthenticated request correctly; editing and publishing are not exercised. HTTP 401 and expected content confirmed."
     },
     {
       "id": "billing",
@@ -28,14 +28,14 @@
     {
       "id": "email",
       "name": "Business email",
-      "detail": "Mail delivery is not independently verified by a webmail page check.",
-      "state": "unknown"
+      "state": "operational",
+      "detail": "Mail server accepts IMAP and SMTP connections and greets correctly; delivery of an individual message is not tested."
     },
     {
       "id": "fastbot",
       "name": "FastBot assistance",
-      "detail": "A dedicated assistance check is not configured.",
-      "state": "unknown"
+      "state": "operational",
+      "detail": "Chat knowledge service responds; the quality of an individual answer is not tested. HTTP 200 and expected content confirmed."
     },
     {
       "id": "api",
@@ -46,17 +46,10 @@
     {
       "id": "webmail",
       "name": "GetInbox web access",
-      "state": "outage",
-      "detail": "Webmail front door content; not mailbox or SMTP delivery. Expected health response or content not found; checked twice."
+      "state": "unknown",
+      "detail": "Webmail front door content; not mailbox or SMTP delivery. Public access is restricted before launch, so health cannot be verified from outside."
     }
   ],
-  "incidents": [
-    {
-      "title": "GetInbox web access independent check failed",
-      "date": "2026-10-08T23:45:48.908Z",
-      "state": "investigating",
-      "body": "The independent check failed twice. This indicates a monitored delivery problem, but does not by itself confirm that every customer function is unavailable."
-    }
-  ],
+  "incidents": [],
   "maintenance": []
 }
