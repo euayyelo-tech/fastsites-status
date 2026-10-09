@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-09T12:17:24.622Z",
+  "checkedAt": "2026-10-09T12:22:29.936Z",
   "services": [
     {
       "id": "website",
@@ -10,8 +10,8 @@
     {
       "id": "client-websites",
       "name": "Client websites",
-      "state": "outage",
-      "detail": "Customer subdomain and custom-domain delivery canaries. See delivery-check state. This is a sample, not a check of every customer website."
+      "state": "operational",
+      "detail": "Customer subdomain and custom-domain delivery canaries. Expected content confirmed. This is a sample, not a check of every customer website."
     },
     {
       "id": "dashboard",
@@ -46,23 +46,10 @@
     {
       "id": "webmail",
       "name": "GetInbox web access",
-      "state": "outage",
-      "detail": "Webmail front door content; not mailbox or SMTP delivery. Public reachability check failed; checked twice."
+      "state": "unknown",
+      "detail": "Webmail front door content; not mailbox or SMTP delivery. Public access is restricted before launch, so health cannot be verified from outside."
     }
   ],
-  "incidents": [
-    {
-      "title": "Client websites independent check failed",
-      "date": "2026-10-09T12:17:24.622Z",
-      "state": "investigating",
-      "body": "The independent check failed twice. This indicates a monitored delivery problem, but does not by itself confirm that every customer function is unavailable."
-    },
-    {
-      "title": "GetInbox web access independent check failed",
-      "date": "2026-10-09T12:17:24.622Z",
-      "state": "investigating",
-      "body": "The independent check failed twice. This indicates a monitored delivery problem, but does not by itself confirm that every customer function is unavailable."
-    }
-  ],
+  "incidents": [],
   "maintenance": []
 }
