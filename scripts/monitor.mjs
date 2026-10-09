@@ -146,6 +146,49 @@ export async function probeMail(check, { greetingImpl = readGreeting, pause = wa
   return { id: check.id, name: check.name, state: 'outage', detail: `${check.detail}. No mail port answered correctly; checked twice.` };
 }
 
+// How many published customer websites answer, counted by the API fetching each one as a visitor would
+// (fastsites-api src/services/site-delivery.service.ts). Counts only; the API never names a site.
+const sitesCount = { url: 'https://api.fastsites.app/status/sites', maxAgeMs: 15 * 60_000 };
+
+export function sitesVerdict(body, now) {
+  let data;
+  try { data = JSON.parse(body); } catch {}
+  if (data?.state === 'pending' || data?.state === 'unavailable') return { state: 'unknown', detail: 'The count of customer websites is not ready yet' };
+  const n = v => Number.isInteger(v) && v >= 0;
+  const sub = data?.subdomains, custom = data?.customDomains;
+  const at = Date.parse(data?.checkedAt);
+  if (data?.state !== 'ready' || ![sub?.total, sub?.online, custom?.total, custom?.online].every(n) || sub.online > sub.total || custom.online > custom.total || !Number.isFinite(at)) {
+    return { state: 'outage', detail: 'Expected count of customer websites not found' };
+  }
+  if (now - at > sitesCount.maxAgeMs) return { state: 'unknown', detail: 'The count of customer websites is out of date' };
+  const total = sub.total + custom.total;
+  if (!total) return { state: 'unknown', detail: 'There are no published customer websites to check yet' };
+  const counts = `${sub.online} of ${sub.total} customer websites answering on their fastsites.app address`
+    + (custom.total ? `; ${custom.online} of ${custom.total} custom domains answering` : '');
+  // A custom domain can go dark because its owner changed their own DNS, so one offline custom domain is reported, not
+  // held against the platform; all of them failing at once points at FastSites.
+  const state = sub.total && sub.online === 0 ? 'outage'
+    : sub.online < sub.total || (custom.total && custom.online === 0) ? 'degraded'
+    : 'operational';
+  return { state, detail: counts };
+}
+
+export async function probeSites({ fetchImpl = fetch, pause = wait, now = Date.now() } = {}) {
+  const once = async () => {
+    try {
+      const response = await fetchImpl(sitesCount.url, { method: 'GET', signal: AbortSignal.timeout(12000), headers: { 'User-Agent': 'FastSites-independent-status/2.0' } });
+      if (response.headers?.get?.('x-fs-gate')) { await response.body?.cancel(); return { state: 'unknown', detail: 'The count of customer websites is restricted before launch' }; }
+      if (response.status === 404) { await response.body?.cancel(); return { state: 'unknown', detail: 'The count of customer websites is not deployed on the live API yet' }; }
+      if (response.status !== 200) { await response.body?.cancel(); return { state: 'outage', detail: `Count of customer websites unavailable (HTTP ${response.status})` }; }
+      return sitesVerdict(await boundedBody(response), now);
+    } catch { return { state: 'outage', detail: 'Count of customer websites unreachable' }; }
+  };
+  const first = await once();
+  if (first.state !== 'outage') return first;
+  await pause(750);
+  return once();
+}
+
 function canary(url, marker) {
   if (!url && !marker) return null;
   try {
@@ -156,19 +199,24 @@ function canary(url, marker) {
   } catch { return false; }
 }
 
+// Unverified outranks degraded: a partly known picture must not read as merely degraded.
+const worst = parts => ['outage', 'unknown', 'degraded', 'operational'].find(s => parts.some(p => p.state === s));
+
 export async function buildReport({ env = process.env, updates = { incidents: [], maintenance: [] }, now = Date.now(), ...deps } = {}) {
   if (![updates?.incidents, updates?.maintenance].every(xs => Array.isArray(xs) && xs.length <= 100 && xs.every(validNotice))) throw new Error('Invalid public incident/maintenance notices');
   const checked = await Promise.all([...publicChecks.map(check => probe(check, deps)), probeMail(mailCheck, deps)]);
+  // Client websites: the count of every published site, plus (when configured) an owner's test site checked from here.
   const client = canary(env.CLIENT_SITE_CHECK_URL, env.CLIENT_SITE_CONTENT_MARKER);
   const custom = canary(env.CLIENT_CUSTOM_DOMAIN_CHECK_URL, env.CLIENT_CUSTOM_DOMAIN_CONTENT_MARKER);
+  const clientParts = [await probeSites({ ...deps, now })];
   if (client === false || custom === false || (!client && custom)) {
-    checked.push({ id: 'client-websites', name: 'Client websites', state: 'unknown', detail: 'Customer canary configuration is incomplete or invalid; no health claim is made.' });
+    clientParts.push({ state: 'unknown', detail: 'Test-site configuration is incomplete or invalid, so no claim is made from it' });
   } else if (client) {
     const results = await Promise.all([probe(client, deps), ...(custom ? [probe(custom, deps)] : [])]);
-    const state = ['outage', 'unknown', 'degraded', 'operational'].find(s => results.some(r => r.state === s));
-    checked.push({ id: 'client-websites', name: 'Client websites', state,
-      detail: `${custom ? 'Customer subdomain and custom-domain delivery canaries' : 'Customer subdomain delivery canary; custom-domain delivery is not monitored'}. ${state === 'operational' ? 'Expected content confirmed' : 'See delivery-check state'}. This is a sample, not a check of every customer website.` });
+    const state = worst(results);
+    clientParts.push({ state, detail: `${custom ? 'Test site and its custom domain' : 'Test site'} checked independently: ${state === 'operational' ? 'expected content confirmed' : 'expected content not confirmed'}` });
   }
+  checked.push({ id: 'client-websites', name: 'Client websites', state: worst(clientParts), detail: `${clientParts.map(p => p.detail).join('. ')}.` });
   const services = components.map(expected => checked.find(s => s.id === expected.id) ?? { ...expected, state: 'unknown' });
   const previous = new Map((updates.incidents ?? []).map(i => [i.title, i]));
   const automatic = services.filter(s => s.state === 'outage').map(s => {
