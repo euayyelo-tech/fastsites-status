@@ -12,10 +12,17 @@ const publicChecks = [
   // `allowGate`: before launch the public sees a holding page. Serving it IS what the public gets, so it counts as reachable.
   { id: 'website', name: 'FastSites website', url: 'https://fastsites.app', marker: 'FastSites', allowGate: true, detail: 'Public website reachability and content' },
   { id: 'api', name: 'FastSites API', url: 'https://api.fastsites.app/health', json: true, detail: 'Public API health endpoint; not every API operation' },
-  { id: 'webmail', name: 'GetInbox web access', url: 'https://app.getinbox.co.uk/mail/demo', marker: 'GetInbox', detail: 'Webmail front door content; not mailbox or SMTP delivery' },
+  // `previewGate`: before launch this host only shows the real page to the owner's preview cookie (fs_preview, the
+  // site's COMING_SOON_BYPASS word, kept here as the GATE_PREVIEW_WORD secret). With it the monitor sees what the owner sees.
+  { id: 'webmail', name: 'GetInbox web access', url: 'https://app.getinbox.co.uk/mail/demo', marker: 'GetInbox', previewGate: true, detail: 'Webmail front door content; not mailbox or SMTP delivery' },
   // An unauthenticated request must be refused with the API's own JSON error: proof that the sign-in layer is up.
   { id: 'dashboard', name: 'Dashboard & editor', url: 'https://api.fastsites.app/projects', expectStatus: 401, marker: 'Authorization', detail: 'Sign-in API refuses an unauthenticated request correctly; editing and publishing are not exercised' },
   { id: 'fastbot', name: 'FastBot assistance', url: 'https://api.fastsites.app/kb/quick-questions?audience=sales', jsonArray: 'nodes', detail: 'Chat knowledge service responds; the quality of an individual answer is not tested' },
+  // The website asks each part one read-only question and answers ok/down/off per part (fastsites-frontend
+  // src/app/api/status/billing/route.ts). A 404 means that endpoint is not deployed there yet, not that billing is down.
+  { id: 'billing', name: 'Domains & billing', url: 'https://fastsites.app/api/status/billing', missingIsUnknown: true,
+    parts: { prices: 'Price list', stripe: 'Stripe', paddle: 'Paddle', domains: 'Domain registrar' },
+    detail: 'Price list, card payments (Stripe and Paddle) and the domain registrar each answer a read-only question; no payment or registration is made' },
 ];
 // Mail servers: connect, read the greeting. No login and no message is sent.
 const mailCheck = {
@@ -41,6 +48,25 @@ async function boundedBody(response) {
   } finally { await reader.cancel().catch(() => {}); }
 }
 
+const listed = names => names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];
+
+// A per-part health answer, { parts: { name: 'ok' | 'down' | 'off' } }, read against the parts the check expects.
+export function partsVerdict(body, labels) {
+  let parts;
+  try { parts = JSON.parse(body)?.parts; } catch {}
+  const names = Object.keys(labels);
+  if (!parts || typeof parts !== 'object' || !names.every(n => ['ok', 'down', 'off'].includes(parts[n]))) {
+    return { state: 'outage', detail: 'Expected health response not found' };
+  }
+  const where = want => names.filter(n => parts[n] === want).map(n => labels[n]);
+  const [ok, down, off] = [where('ok'), where('down'), where('off')];
+  const answered = ok.length ? `; ${listed(ok)} answered` : '';
+  if (down.length && !ok.length) return { state: 'outage', detail: `${listed(down)} did not answer` };
+  if (down.length) return { state: 'degraded', detail: `${listed(down)} did not answer${answered}` };
+  if (off.length) return { state: 'unknown', detail: `${listed(off)} ${off.length > 1 ? 'are' : 'is'} not set up on the live site, so cannot be checked${answered}` };
+  return { state: 'operational', detail: 'Every part answered' };
+}
+
 export async function probe(check, { fetchImpl = fetch, pause = wait } = {}) {
   const attempts = [];
   const expected = check.expectStatus ?? 200;
@@ -49,7 +75,7 @@ export async function probe(check, { fetchImpl = fetch, pause = wait } = {}) {
     try {
       const response = await fetchImpl(check.url, {
         method: 'GET', redirect: 'follow', signal: AbortSignal.timeout(12000),
-        headers: { 'User-Agent': 'FastSites-independent-status/2.0' },
+        headers: { 'User-Agent': 'FastSites-independent-status/2.0', ...(check.cookie ? { Cookie: check.cookie } : {}) },
       });
       // The pre-launch gate (soft launch or coming soon) answers 200 with a holding page for visitors it does not know.
       const gate = response.headers?.get?.('x-fs-gate');
@@ -57,6 +83,10 @@ export async function probe(check, { fetchImpl = fetch, pause = wait } = {}) {
         await response.body?.cancel();
         if (check.allowGate) return { id: check.id, name: check.name, state: 'operational', detail: `${check.detail}. HTTP 200: the public pre-launch page is being served.` };
         return { id: check.id, name: check.name, state: 'unknown', detail: `${check.detail}. Public access is restricted before launch, so health cannot be verified from outside.` };
+      }
+      if (check.missingIsUnknown && response.status === 404) {
+        await response.body?.cancel();
+        return { id: check.id, name: check.name, state: 'unknown', detail: `${check.detail}. The check is not deployed on the live site yet, so health cannot be verified.` };
       }
       if (response.status !== expected && [401, 403, 429].includes(response.status)) {
         await response.body?.cancel();
@@ -68,6 +98,14 @@ export async function probe(check, { fetchImpl = fetch, pause = wait } = {}) {
         const body = await boundedBody(response);
         if (/cf-chl-|Just a moment\.\.\.|Attention Required!/.test(body)) {
           attempts.push({ state: 'unknown', detail: 'Challenge page returned; service health cannot be verified' });
+          continue;
+        }
+        if (check.parts) {
+          const verdict = partsVerdict(body, check.parts);
+          if (verdict.state === 'operational') return { id: check.id, name: check.name, state: attempts.length ? 'degraded' : 'operational', detail: `${check.detail}. ${attempts.length ? 'Initial check failed; retry succeeded.' : `${verdict.detail}.`}` };
+          // Some parts down, or not set up, is the site's own considered answer: report it as is. Nothing working is retried once.
+          if (verdict.state !== 'outage') return { id: check.id, name: check.name, state: verdict.state, detail: `${check.detail}. ${verdict.detail}.` };
+          attempts.push(verdict);
           continue;
         }
         let valid = false;
@@ -110,6 +148,50 @@ export async function probeMail(check, { greetingImpl = readGreeting, pause = wa
   return { id: check.id, name: check.name, state: 'outage', detail: `${check.detail}. No mail port answered correctly; checked twice.` };
 }
 
+// How many published customer websites answer, counted by the API fetching each one as a visitor would
+// (fastsites-api src/services/site-delivery.service.ts). Counts only; the API never names a site.
+const sitesCount = { url: 'https://api.fastsites.app/status/sites', maxAgeMs: 15 * 60_000 };
+
+export function sitesVerdict(body, now) {
+  let data;
+  try { data = JSON.parse(body); } catch {}
+  if (data?.state === 'pending' || data?.state === 'unavailable') return { state: 'unknown', detail: 'The count of customer websites is not ready yet' };
+  const n = v => Number.isInteger(v) && v >= 0;
+  const sub = data?.subdomains, custom = data?.customDomains;
+  const at = Date.parse(data?.checkedAt);
+  if (data?.state !== 'ready' || ![sub?.total, sub?.online, custom?.total, custom?.online].every(n) || sub.online > sub.total || custom.online > custom.total || !Number.isFinite(at)) {
+    return { state: 'outage', detail: 'Expected count of customer websites not found' };
+  }
+  if (now - at > sitesCount.maxAgeMs) return { state: 'unknown', detail: 'The count of customer websites is out of date' };
+  const total = sub.total + custom.total;
+  if (!total) return { state: 'unknown', detail: 'There are no published customer websites to check yet' };
+  const counts = `${sub.online} of ${sub.total} customer websites answering on their fastsites.app address`
+    + (custom.total ? `; ${custom.online} of ${custom.total} custom domains answering` : '');
+  // A custom domain can go dark because its owner changed their own DNS, so one offline custom domain is reported, not
+  // held against the platform; all of them failing at once points at FastSites.
+  const state = sub.total && sub.online === 0 ? 'outage'
+    : sub.online < sub.total || (custom.total && custom.online === 0) ? 'degraded'
+    : 'operational';
+  return { state, detail: counts };
+}
+
+export async function probeSites({ fetchImpl = fetch, pause = wait, now = Date.now() } = {}) {
+  const once = async () => {
+    try {
+      const response = await fetchImpl(sitesCount.url, { method: 'GET', signal: AbortSignal.timeout(12000), headers: { 'User-Agent': 'FastSites-independent-status/2.0' } });
+      if (response.headers?.get?.('x-fs-gate')) { await response.body?.cancel(); return { state: 'unknown', detail: 'The count of customer websites is restricted before launch' }; }
+      // `noClaim`: says nothing either way, so a passing test site is not held back by a count that does not exist yet.
+      if (response.status === 404) { await response.body?.cancel(); return { state: 'unknown', noClaim: true, detail: 'The count of customer websites is not deployed on the live API yet' }; }
+      if (response.status !== 200) { await response.body?.cancel(); return { state: 'outage', detail: `Count of customer websites unavailable (HTTP ${response.status})` }; }
+      return sitesVerdict(await boundedBody(response), now);
+    } catch { return { state: 'outage', detail: 'Count of customer websites unreachable' }; }
+  };
+  const first = await once();
+  if (first.state !== 'outage') return first;
+  await pause(750);
+  return once();
+}
+
 function canary(url, marker) {
   if (!url && !marker) return null;
   try {
@@ -120,19 +202,28 @@ function canary(url, marker) {
   } catch { return false; }
 }
 
+// Unverified outranks degraded: a partly known picture must not read as merely degraded.
+const worst = parts => ['outage', 'unknown', 'degraded', 'operational'].find(s => parts.some(p => p.state === s));
+
 export async function buildReport({ env = process.env, updates = { incidents: [], maintenance: [] }, now = Date.now(), ...deps } = {}) {
   if (![updates?.incidents, updates?.maintenance].every(xs => Array.isArray(xs) && xs.length <= 100 && xs.every(validNotice))) throw new Error('Invalid public incident/maintenance notices');
-  const checked = await Promise.all([...publicChecks.map(check => probe(check, deps)), probeMail(mailCheck, deps)]);
+  // Only a plain word is ever turned into a cookie; anything else is ignored and the gate is reported as before.
+  const preview = /^[A-Za-z0-9_-]{1,64}$/.test(env.GATE_PREVIEW_WORD ?? '') ? `fs_preview=${env.GATE_PREVIEW_WORD}` : null;
+  const withPreview = check => (check.previewGate && preview ? { ...check, cookie: preview } : check);
+  const checked = await Promise.all([...publicChecks.map(check => probe(withPreview(check), deps)), probeMail(mailCheck, deps)]);
+  // Client websites: the count of every published site, plus (when configured) an owner's test site checked from here.
   const client = canary(env.CLIENT_SITE_CHECK_URL, env.CLIENT_SITE_CONTENT_MARKER);
   const custom = canary(env.CLIENT_CUSTOM_DOMAIN_CHECK_URL, env.CLIENT_CUSTOM_DOMAIN_CONTENT_MARKER);
+  const clientParts = [await probeSites({ ...deps, now })];
   if (client === false || custom === false || (!client && custom)) {
-    checked.push({ id: 'client-websites', name: 'Client websites', state: 'unknown', detail: 'Customer canary configuration is incomplete or invalid; no health claim is made.' });
+    clientParts.push({ state: 'unknown', detail: 'Test-site configuration is incomplete or invalid, so no claim is made from it' });
   } else if (client) {
     const results = await Promise.all([probe(client, deps), ...(custom ? [probe(custom, deps)] : [])]);
-    const state = ['outage', 'unknown', 'degraded', 'operational'].find(s => results.some(r => r.state === s));
-    checked.push({ id: 'client-websites', name: 'Client websites', state,
-      detail: `${custom ? 'Customer subdomain and custom-domain delivery canaries' : 'Customer subdomain delivery canary; custom-domain delivery is not monitored'}. ${state === 'operational' ? 'Expected content confirmed' : 'See delivery-check state'}. This is a sample, not a check of every customer website.` });
+    const state = worst(results);
+    clientParts.push({ state, detail: `${custom ? 'Test site and its custom domain' : 'Test site'} checked independently: ${state === 'operational' ? 'expected content confirmed' : 'expected content not confirmed'}` });
   }
+  const claims = clientParts.filter(p => !p.noClaim);
+  checked.push({ id: 'client-websites', name: 'Client websites', state: worst(claims.length ? claims : clientParts), detail: `${clientParts.map(p => p.detail).join('. ')}.` });
   const services = components.map(expected => checked.find(s => s.id === expected.id) ?? { ...expected, state: 'unknown' });
   const previous = new Map((updates.incidents ?? []).map(i => [i.title, i]));
   const automatic = services.filter(s => s.state === 'outage').map(s => {

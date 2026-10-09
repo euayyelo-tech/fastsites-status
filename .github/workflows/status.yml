@@ -36,6 +36,7 @@ jobs:
           CLIENT_SITE_CONTENT_MARKER: ${{ secrets.CLIENT_SITE_CONTENT_MARKER }}
           CLIENT_CUSTOM_DOMAIN_CHECK_URL: ${{ secrets.CLIENT_CUSTOM_DOMAIN_CHECK_URL }}
           CLIENT_CUSTOM_DOMAIN_CONTENT_MARKER: ${{ secrets.CLIENT_CUSTOM_DOMAIN_CONTENT_MARKER }}
+          GATE_PREVIEW_WORD: ${{ secrets.GATE_PREVIEW_WORD }}
         run: node scripts/monitor.mjs
       - name: Save latest report
         run: |

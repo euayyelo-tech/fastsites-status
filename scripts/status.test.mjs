@@ -1,18 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildReport, probe, probeMail } from './monitor.mjs';
+import { buildReport, probe, probeMail, probeSites, sitesVerdict } from './monitor.mjs';
 import { components, emptyFeed, overall, validateFeed } from '../site/status-model.mjs';
 
 const now = Date.now();
 const feed = () => ({ checkedAt: new Date(now).toISOString(), services: components.map(s => ({ ...s, state: 'operational' })), incidents: [], maintenance: [] });
 const noPause = async () => {};
 const check = { id: 'website', name: 'FastSites website', url: 'https://test.example', marker: 'EXPECTED', detail: 'Synthetic content check' };
+const billingBody = (parts = {}) => JSON.stringify({ ok: true, parts: { prices: 'ok', stripe: 'ok', paddle: 'ok', domains: 'ok', ...parts } });
+const billingCheck = { id: 'billing', name: 'Domains & billing', url: 'https://test.example/api/status/billing', missingIsUnknown: true,
+  parts: { prices: 'Price list', stripe: 'Stripe', paddle: 'Paddle', domains: 'Domain registrar' }, detail: 'Synthetic billing check' };
+const sitesBody = (over = {}) => JSON.stringify({ state: 'ready', checkedAt: new Date(now).toISOString(), subdomains: { total: 5, online: 5 }, customDomains: { total: 2, online: 2 }, ...over });
 const sequence = (...responses) => { let index = 0; return async () => { const value = responses[Math.min(index++, responses.length - 1)]; if (value instanceof Error) throw value; return new Response(value.body ?? '', { status: value.status ?? 200 }); }; };
 const healthyFetch = async url => {
   const u = String(url);
   if (u.endsWith('/health')) return new Response('{"ok":true}');
   if (u.endsWith('/projects')) return new Response('{"error":"Missing or invalid Authorization header"}', { status: 401 });
   if (u.includes('/kb/quick-questions')) return new Response('{"nodes":[]}');
+  if (u.endsWith('/api/status/billing')) return new Response(billingBody());
+  if (u.endsWith('/status/sites')) return new Response(sitesBody());
   return new Response('FastSites GetInbox EXPECTED');
 };
 const healthyMail = async ({ port }) => (port === 993 ? '* OK IMAP ready' : '220 smtp.example ESMTP');
@@ -38,22 +44,77 @@ test('blocked, rate-limited and challenge responses are unknown, not offline', a
   for (const status of [401, 403, 429]) assert.equal((await probe(check, { fetchImpl: sequence({ status }), pause: noPause })).state, 'unknown');
   assert.equal((await probe(check, { fetchImpl: sequence({ body: 'Just a moment... EXPECTED cf-chl-' }), pause: noPause })).state, 'unknown');
 });
-test('client websites and billing stay unknown until a real check exists', async () => {
+test('every component is checked; client websites come from the count of every published site', async () => {
   const report = await buildReport(options);
   assert.equal(report.services.length, 8);
-  for (const id of ['client-websites', 'billing']) assert.equal(report.services.find(s => s.id === id).state, 'unknown');
-  for (const id of ['website', 'api', 'webmail', 'dashboard', 'email', 'fastbot']) assert.equal(report.services.find(s => s.id === id).state, 'operational');
-  assert.equal(overall(validateFeed(report, now)).state, 'unknown');
+  for (const s of report.services) assert.equal(s.state, 'operational', s.id);
+  assert.match(report.services.find(s => s.id === 'client-websites').detail, /5 of 5 customer websites answering on their fastsites\.app address; 2 of 2 custom domains answering/);
+  assert.equal(overall(validateFeed(report, now)).state, 'operational');
+});
+test('the site count: offline sites degrade, none answering is an outage, a dark custom domain alone is not held against FastSites', async () => {
+  const verdict = over => sitesVerdict(sitesBody(over), now);
+  assert.equal(verdict({ subdomains: { total: 5, online: 4 } }).state, 'degraded');
+  assert.match(verdict({ subdomains: { total: 5, online: 4 } }).detail, /4 of 5 customer websites/);
+  assert.equal(verdict({ subdomains: { total: 5, online: 0 } }).state, 'outage');
+  assert.equal(verdict({ customDomains: { total: 2, online: 1 } }).state, 'operational');
+  assert.equal(verdict({ customDomains: { total: 2, online: 0 } }).state, 'degraded');
+  assert.doesNotMatch(verdict({ customDomains: { total: 0, online: 0 } }).detail, /custom domains/);
+});
+test('the site count is unverified while pending, stale, empty or not deployed, and an outage when unreadable', async () => {
+  const verdict = (body, at = now) => sitesVerdict(body, at);
+  assert.equal(verdict('{"state":"pending"}').state, 'unknown');
+  assert.equal(verdict('{"state":"unavailable"}').state, 'unknown');
+  assert.equal(verdict(sitesBody(), now + 15 * 60_000 + 1).state, 'unknown');
+  assert.equal(verdict(sitesBody({ subdomains: { total: 0, online: 0 }, customDomains: { total: 0, online: 0 } })).state, 'unknown');
+  for (const body of ['not json', '{"state":"ready"}', sitesBody({ subdomains: { total: 1, online: 2 } }), sitesBody({ checkedAt: 'never' })]) assert.equal(verdict(body).state, 'outage');
+  assert.equal((await probeSites({ fetchImpl: sequence({ status: 404 }), pause: noPause, now })).state, 'unknown');
+  assert.equal((await probeSites({ fetchImpl: sequence({ status: 502 }, { body: sitesBody() }), pause: noPause, now })).state, 'operational', 'one failed read is retried');
+  assert.equal((await probeSites({ fetchImpl: sequence(new Error('down')), pause: noPause, now })).state, 'outage');
+});
+test('billing is operational only when every part answers', async () => {
+  const run = async (...bodies) => probe(billingCheck, { fetchImpl: sequence(...bodies), pause: noPause });
+  assert.equal((await run({ body: billingBody() })).state, 'operational');
+  const one = await run({ body: billingBody({ stripe: 'down' }) });
+  assert.equal(one.state, 'degraded');
+  assert.match(one.detail, /Stripe did not answer; Price list, Paddle and Domain registrar answered/);
+  assert.equal((await run({ body: billingBody({ prices: 'down', stripe: 'down', paddle: 'down', domains: 'down' }) })).state, 'outage');
+  assert.equal((await run({ body: billingBody({ prices: 'off', stripe: 'down', paddle: 'off', domains: 'off' }) })).state, 'outage', 'nothing that is set up works');
+});
+test('a billing part that is not set up is unverified, never green', async () => {
+  const result = await probe(billingCheck, { fetchImpl: sequence({ body: billingBody({ paddle: 'off' }) }), pause: noPause });
+  assert.equal(result.state, 'unknown');
+  assert.match(result.detail, /Paddle is not set up on the live site/);
+});
+test('a malformed billing answer is an outage after a retry, and a recovered retry is degraded', async () => {
+  for (const body of ['not json', '{"parts":{}}', JSON.stringify({ parts: { prices: 'ok', stripe: 'yes', paddle: 'ok', domains: 'ok' } })]) {
+    assert.equal((await probe(billingCheck, { fetchImpl: sequence({ body }), pause: noPause })).state, 'outage');
+  }
+  assert.equal((await probe(billingCheck, { fetchImpl: sequence({ body: 'not json' }, { body: billingBody() }), pause: noPause })).state, 'degraded');
+});
+test('a billing endpoint that is not deployed yet is unknown, not offline', async () => {
+  const result = await probe(billingCheck, { fetchImpl: sequence({ status: 404 }), pause: noPause });
+  assert.equal(result.state, 'unknown');
+  assert.match(result.detail, /not deployed on the live site yet/);
+  // Only checks that opt in: any other 404 is still an outage.
+  assert.equal((await probe(check, { fetchImpl: sequence({ status: 404 }), pause: noPause })).state, 'outage');
 });
 test('customer delivery checks keep URLs and content markers private', async () => {
   const env = { CLIENT_SITE_CHECK_URL: 'https://private-canary.example', CLIENT_SITE_CONTENT_MARKER: 'EXPECTED' };
   const report = await buildReport({ ...options, env });
   const client = report.services.find(s => s.id === 'client-websites');
   assert.equal(client.state, 'operational');
-  assert.match(client.detail, /custom-domain delivery is not monitored/);
-  assert.match(client.detail, /not a check of every customer/);
+  assert.match(client.detail, /Test site checked independently: expected content confirmed/);
+  assert.match(client.detail, /customer websites answering/);
   assert.ok(!JSON.stringify(report).includes(env.CLIENT_SITE_CHECK_URL));
   assert.ok(!JSON.stringify(report).includes(env.CLIENT_SITE_CONTENT_MARKER));
+});
+test('a count that is not deployed yet neither blocks a passing test site nor stands in for one', async () => {
+  const noCount = async url => String(url).endsWith('/status/sites') ? new Response('', { status: 404 }) : healthyFetch(url);
+  const env = { CLIENT_SITE_CHECK_URL: 'https://tenant.example', CLIENT_SITE_CONTENT_MARKER: 'EXPECTED' };
+  const withSite = (await buildReport({ ...options, env, fetchImpl: noCount })).services.find(s => s.id === 'client-websites');
+  assert.equal(withSite.state, 'operational');
+  assert.match(withSite.detail, /not deployed on the live API yet/);
+  assert.equal((await buildReport({ ...options, fetchImpl: noCount })).services.find(s => s.id === 'client-websites').state, 'unknown');
 });
 test('custom-domain canary failures affect the customer delivery component', async () => {
   const env = { CLIENT_SITE_CHECK_URL: 'https://tenant.example', CLIENT_SITE_CONTENT_MARKER: 'EXPECTED', CLIENT_CUSTOM_DOMAIN_CHECK_URL: 'https://custom.example', CLIENT_CUSTOM_DOMAIN_CONTENT_MARKER: 'EXPECTED' };
@@ -72,7 +133,7 @@ test('incomplete or invalid canary configuration never claims healthy', async ()
 });
 test('failed public probes create public incidents without sensitive response bodies', async () => {
   const report = await buildReport({ ...options, fetchImpl: sequence({ status: 500, body: 'private fixture details' }) });
-  assert.equal(report.incidents.length, 5);
+  assert.equal(report.incidents.length, 7);
   assert.equal(overall(validateFeed(report, now)).state, 'partial-outage');
   assert.ok(!JSON.stringify(report).includes('private fixture details'));
 });
@@ -116,6 +177,25 @@ test('the pre-launch gate is reachable for the website but never an outage for a
   const report = await buildReport({ ...options, fetchImpl: gated() });
   assert.equal(report.services.find(s => s.id === 'webmail').state, 'unknown');
   assert.equal(report.incidents.length, 0);
+});
+test('with the preview word, webmail is checked behind the pre-launch gate; the word never reaches the report', async () => {
+  const seen = [];
+  const gateUnlessCookie = async (url, init) => {
+    const cookie = init?.headers?.Cookie;
+    if (String(url).includes('getinbox')) { seen.push(cookie ?? null); return cookie === 'fs_preview=secretword' ? new Response('GetInbox webmail') : gated()(); }
+    return healthyFetch(url);
+  };
+  const report = await buildReport({ ...options, env: { GATE_PREVIEW_WORD: 'secretword' }, fetchImpl: gateUnlessCookie });
+  assert.equal(report.services.find(s => s.id === 'webmail').state, 'operational');
+  assert.ok(!JSON.stringify(report).includes('secretword'));
+  assert.ok(seen.every(c => c === 'fs_preview=secretword'), 'only the webmail check carries the cookie');
+  const healthyCalls = [];
+  await buildReport({ ...options, env: { GATE_PREVIEW_WORD: 'secretword' }, fetchImpl: async (url, init) => { if (!String(url).includes('getinbox')) healthyCalls.push(init?.headers?.Cookie); return gateUnlessCookie(url, init); } });
+  assert.ok(healthyCalls.every(c => c === undefined), 'no other check is sent the cookie');
+  for (const word of ['', 'two words', 'x;evil=1']) {
+    const r = await buildReport({ ...options, env: { GATE_PREVIEW_WORD: word }, fetchImpl: gateUnlessCookie });
+    assert.equal(r.services.find(s => s.id === 'webmail').state, 'unknown', `ignored: ${JSON.stringify(word)}`);
+  }
 });
 test('the dashboard check needs the API to refuse an unauthenticated request in its own words', async () => {
   const dash = { ...check, id: 'dashboard', url: 'https://api.example/projects', expectStatus: 401, marker: 'Authorization' };
