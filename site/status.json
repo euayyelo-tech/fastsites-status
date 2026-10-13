@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-13T03:25:41.230Z",
+  "checkedAt": "2026-10-13T03:30:16.596Z",
   "services": [
     {
       "id": "website",
@@ -34,8 +34,8 @@
     {
       "id": "fastbot",
       "name": "FastBot assistance",
-      "state": "degraded",
-      "detail": "Chat knowledge service responds; the quality of an individual answer is not tested. Initial check failed; retry succeeded."
+      "state": "operational",
+      "detail": "Chat knowledge service responds; the quality of an individual answer is not tested. HTTP 200 and expected content confirmed."
     },
     {
       "id": "api",
