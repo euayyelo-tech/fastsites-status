@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-13T04:15:04.958Z",
+  "checkedAt": "2026-10-13T04:19:41.464Z",
   "services": [
     {
       "id": "website",
@@ -16,8 +16,8 @@
     {
       "id": "dashboard",
       "name": "Dashboard & editor",
-      "state": "degraded",
-      "detail": "Sign-in API refuses an unauthenticated request correctly; editing and publishing are not exercised. Initial check failed; retry succeeded."
+      "state": "operational",
+      "detail": "Sign-in API refuses an unauthenticated request correctly; editing and publishing are not exercised. HTTP 401 and expected content confirmed."
     },
     {
       "id": "billing",
