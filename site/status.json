@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-13T01:35:25.845Z",
+  "checkedAt": "2026-10-13T01:48:44.045Z",
   "services": [
     {
       "id": "website",
@@ -22,8 +22,8 @@
     {
       "id": "billing",
       "name": "Domains & billing",
-      "state": "operational",
-      "detail": "Price list, card payments (Stripe and Paddle) and the domain registrar each answer a read-only question; no payment or registration is made. Every part answered."
+      "state": "degraded",
+      "detail": "Price list, card payments (Stripe and Paddle) and the domain registrar each answer a read-only question; no payment or registration is made. Initial check failed; retry succeeded."
     },
     {
       "id": "email",
@@ -34,8 +34,8 @@
     {
       "id": "fastbot",
       "name": "FastBot assistance",
-      "state": "operational",
-      "detail": "Chat knowledge service responds; the quality of an individual answer is not tested. HTTP 200 and expected content confirmed."
+      "state": "degraded",
+      "detail": "Chat knowledge service responds; the quality of an individual answer is not tested. Initial check failed; retry succeeded."
     },
     {
       "id": "api",
