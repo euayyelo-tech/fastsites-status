@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-23T16:06:53.460Z",
+  "checkedAt": "2026-10-23T16:11:45.001Z",
   "services": [
     {
       "id": "website",
@@ -16,14 +16,14 @@
     {
       "id": "dashboard",
       "name": "Dashboard & editor",
-      "state": "outage",
-      "detail": "Sign-in API refuses an unauthenticated request correctly; editing and publishing are not exercised. Public reachability check failed; checked twice."
+      "state": "operational",
+      "detail": "Sign-in API refuses an unauthenticated request correctly; editing and publishing are not exercised. HTTP 401 and expected content confirmed."
     },
     {
       "id": "billing",
       "name": "Domains & billing",
-      "state": "degraded",
-      "detail": "Price list, card payments (Stripe and Paddle) and the domain registrar each answer a read-only question; no payment or registration is made. Initial check failed; retry succeeded."
+      "state": "operational",
+      "detail": "Price list, card payments (Stripe and Paddle) and the domain registrar each answer a read-only question; no payment or registration is made. Every part answered."
     },
     {
       "id": "email",
@@ -53,13 +53,7 @@
   "incidents": [
     {
       "title": "Client websites independent check failed",
-      "date": "2026-10-23T16:06:53.460Z",
-      "state": "investigating",
-      "body": "The independent check failed twice. This indicates a monitored delivery problem, but does not by itself confirm that every customer function is unavailable."
-    },
-    {
-      "title": "Dashboard & editor independent check failed",
-      "date": "2026-10-23T16:06:53.460Z",
+      "date": "2026-10-23T16:11:45.001Z",
       "state": "investigating",
       "body": "The independent check failed twice. This indicates a monitored delivery problem, but does not by itself confirm that every customer function is unavailable."
     }
