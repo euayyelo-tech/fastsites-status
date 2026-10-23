@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-23T20:12:07.652Z",
+  "checkedAt": "2026-10-23T20:16:38.826Z",
   "services": [
     {
       "id": "website",
@@ -40,8 +40,8 @@
     {
       "id": "api",
       "name": "FastSites API",
-      "state": "operational",
-      "detail": "Public API health endpoint; not every API operation. HTTP 200 and expected content confirmed."
+      "state": "degraded",
+      "detail": "Public API health endpoint; not every API operation. Initial check failed; retry succeeded."
     },
     {
       "id": "webmail",
@@ -53,7 +53,7 @@
   "incidents": [
     {
       "title": "Client websites independent check failed",
-      "date": "2026-10-23T20:12:07.652Z",
+      "date": "2026-10-23T20:16:38.826Z",
       "state": "investigating",
       "body": "The independent check failed twice. This indicates a monitored delivery problem, but does not by itself confirm that every customer function is unavailable."
     }
