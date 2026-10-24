@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-24T09:29:48.587Z",
+  "checkedAt": "2026-10-24T09:34:14.392Z",
   "services": [
     {
       "id": "website",
@@ -53,7 +53,7 @@
   "incidents": [
     {
       "title": "Client websites independent check failed",
-      "date": "2026-10-24T09:29:48.587Z",
+      "date": "2026-10-24T09:34:14.392Z",
       "state": "investigating",
       "body": "The independent check failed twice. This indicates a monitored delivery problem, but does not by itself confirm that every customer function is unavailable."
     }
