@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-10-28T10:42:52.568Z",
+  "checkedAt": "2026-10-28T10:47:32.666Z",
   "services": [
     {
       "id": "website",
@@ -22,8 +22,8 @@
     {
       "id": "billing",
       "name": "Domains & billing",
-      "state": "degraded",
-      "detail": "Price list, card payments (Stripe and Paddle) and the domain registrar each answer a read-only question; no payment or registration is made. Initial check failed; retry succeeded."
+      "state": "operational",
+      "detail": "Price list, card payments (Stripe and Paddle) and the domain registrar each answer a read-only question; no payment or registration is made. Every part answered."
     },
     {
       "id": "email",
@@ -53,7 +53,7 @@
   "incidents": [
     {
       "title": "Client websites independent check failed",
-      "date": "2026-10-28T10:42:52.568Z",
+      "date": "2026-10-28T10:47:32.666Z",
       "state": "investigating",
       "body": "The independent check failed twice. This indicates a monitored delivery problem, but does not by itself confirm that every customer function is unavailable."
     }
