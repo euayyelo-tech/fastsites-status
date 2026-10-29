@@ -122,6 +122,39 @@ test('custom-domain canary failures affect the customer delivery component', asy
   assert.equal(report.services.find(s => s.id === 'client-websites').state, 'outage');
   assert.ok(report.incidents.some(i => i.title.startsWith('Client websites')));
 });
+
+test('customer diagnostics identify each role and failure reason without exposing probe inputs', async () => {
+  const env = {
+    CLIENT_SITE_CHECK_URL: 'https://private-test-site.example', CLIENT_SITE_CONTENT_MARKER: 'PRIVATE_SITE_MARKER',
+    CLIENT_CUSTOM_DOMAIN_CHECK_URL: 'https://private-custom-domain.example', CLIENT_CUSTOM_DOMAIN_CONTENT_MARKER: 'PRIVATE_CUSTOM_MARKER',
+    GATE_PREVIEW_WORD: 'PRIVATE_PREVIEW_WORD',
+  };
+  const failures = [
+    { role: 'Test site', url: env.CLIENT_SITE_CHECK_URL, reason: 'HTTP 503', fail: () => new Response('PRIVATE_RESPONSE_BODY', { status: 503 }) },
+    { role: 'Custom-domain test', url: env.CLIENT_CUSTOM_DOMAIN_CHECK_URL, reason: 'Public reachability check failed', fail: () => { throw new Error(`PRIVATE_AUTH_VALUE ${Object.values(env).join(' ')}`); } },
+    { role: 'Custom-domain test', url: env.CLIENT_CUSTOM_DOMAIN_CHECK_URL, reason: 'Expected health response or content not found', fail: () => new Response('PRIVATE_RESPONSE_BODY') },
+  ];
+  for (const failure of failures) {
+    const report = await buildReport({ ...options, env, fetchImpl: async url => {
+      if (url === failure.url) return failure.fail();
+      if (url === env.CLIENT_SITE_CHECK_URL) return new Response(env.CLIENT_SITE_CONTENT_MARKER);
+      if (url === env.CLIENT_CUSTOM_DOMAIN_CHECK_URL) return new Response(env.CLIENT_CUSTOM_DOMAIN_CONTENT_MARKER);
+      if (String(url).endsWith('/status/sites')) return new Response('', { status: 404 });
+      return healthyFetch(url);
+    } });
+    const client = report.services.find(s => s.id === 'client-websites');
+    assert.equal(client.state, 'outage');
+    assert.ok(validateFeed(report, now), 'Diagnostics must remain valid public feed details');
+    assert.ok(client.detail.includes(`${failure.role}: outage; ${failure.reason}; checked twice`), client.detail);
+    const healthyRole = failure.role === 'Test site' ? 'Custom-domain test' : 'Test site';
+    assert.ok(client.detail.includes(`${healthyRole}: operational; HTTP 200 and expected content confirmed`), client.detail);
+    const publicReport = JSON.stringify(report);
+    for (const privateInput of [...Object.values(env), 'PRIVATE_AUTH_VALUE', 'PRIVATE_RESPONSE_BODY']) {
+      assert.ok(!publicReport.includes(privateInput), 'Private probe inputs must not enter public diagnostics');
+    }
+  }
+});
+
 test('incomplete or invalid canary configuration never claims healthy', async () => {
   for (const env of [
     { CLIENT_SITE_CHECK_URL: 'https://tenant.example' },

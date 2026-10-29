@@ -218,9 +218,16 @@ export async function buildReport({ env = process.env, updates = { incidents: []
   if (client === false || custom === false || (!client && custom)) {
     clientParts.push({ state: 'unknown', detail: 'Test-site configuration is incomplete or invalid, so no claim is made from it' });
   } else if (client) {
-    const results = await Promise.all([probe(client, deps), ...(custom ? [probe(custom, deps)] : [])]);
+    const checks = [client, ...(custom ? [custom] : [])];
+    const results = await Promise.all(checks.map(check => probe(check, deps)));
     const state = worst(results);
-    clientParts.push({ state, detail: `${custom ? 'Test site and its custom domain' : 'Test site'} checked independently: ${state === 'operational' ? 'expected content confirmed' : 'expected content not confirmed'}` });
+    // probe() supplies fixed public reasons, never response bodies, URLs, markers or raw errors.
+    const diagnostics = results.map((result, index) => {
+      const role = index === 0 ? 'Test site' : 'Custom-domain test';
+      const reason = result.detail.slice(checks[index].detail.length + 2).replace(/\.$/, '');
+      return `${role}: ${result.state}; ${reason}`;
+    }).join('. ');
+    clientParts.push({ state, detail: `${custom ? 'Test site and its custom domain' : 'Test site'} checked independently: ${state === 'operational' ? 'expected content confirmed' : 'expected content not confirmed'}. ${diagnostics}` });
   }
   const claims = clientParts.filter(p => !p.noClaim);
   checked.push({ id: 'client-websites', name: 'Client websites', state: worst(claims.length ? claims : clientParts), detail: `${clientParts.map(p => p.detail).join('. ')}.` });
