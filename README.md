@@ -23,7 +23,9 @@ Once the GitHub Pages deployment is live, configure `status.fastsites.app` as a 
 
 ## Customer delivery canaries
 
-Use only an approved owner-controlled test website, not an arbitrary customer. Set Actions secrets `CLIENT_SITE_CHECK_URL` (HTTPS, no credentials/query/hash) and `CLIENT_SITE_CONTENT_MARKER` (an expected published content marker). A successful check covers a sample customer-subdomain publishing path, not every tenant. Optional `CLIENT_CUSTOM_DOMAIN_CHECK_URL` and `CLIENT_CUSTOM_DOMAIN_CONTENT_MARKER` add a real custom-domain delivery path. URLs and markers are not written to the public JSON report or logs. Until these are configured, `client-websites` is unknown.
+Use only an approved owner-controlled test website, not an arbitrary customer. Set Actions secrets `CLIENT_SITE_CHECK_URL` (HTTPS, no credentials/query/hash) and `CLIENT_SITE_CONTENT_MARKER` (an expected published content marker). A successful check covers a sample customer-subdomain publishing path, not every tenant. Optional `CLIENT_CUSTOM_DOMAIN_CHECK_URL` and `CLIENT_CUSTOM_DOMAIN_CONTENT_MARKER` add a real custom-domain delivery path. URLs and markers are not written to the public JSON report or logs. If neither sample checks nor published-site counts are available, `client-websites` is unknown.
+
+If one sample path works and another fails, the sample result is **Degraded**. A path that succeeds on its retry counts as working. If both sample paths fail, the sample result remains **Offline**. Unknown checks still outrank a degraded sample result. Each path's own state and safe failure reason remain visible; a working sample never hides the other path's failure or proves every customer website is healthy.
 
 ## Domain handoff
 

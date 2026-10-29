@@ -220,7 +220,10 @@ export async function buildReport({ env = process.env, updates = { incidents: []
   } else if (client) {
     const checks = [client, ...(custom ? [custom] : [])];
     const results = await Promise.all(checks.map(check => probe(check, deps)));
-    const state = worst(results);
+    // A working sample path makes another failed path partial delivery, not a total outage.
+    // Keep the original results for diagnostics, and preserve unknown over degraded.
+    const working = results.some(result => ['operational', 'degraded'].includes(result.state));
+    const state = worst(results.map(result => working && result.state === 'outage' ? { state: 'degraded' } : result));
     // probe() supplies fixed public reasons, never response bodies, URLs, markers or raw errors.
     const diagnostics = results.map((result, index) => {
       const role = index === 0 ? 'Test site' : 'Custom-domain test';

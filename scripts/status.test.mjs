@@ -119,8 +119,39 @@ test('a count that is not deployed yet neither blocks a passing test site nor st
 test('custom-domain canary failures affect the customer delivery component', async () => {
   const env = { CLIENT_SITE_CHECK_URL: 'https://tenant.example', CLIENT_SITE_CONTENT_MARKER: 'EXPECTED', CLIENT_CUSTOM_DOMAIN_CHECK_URL: 'https://custom.example', CLIENT_CUSTOM_DOMAIN_CONTENT_MARKER: 'EXPECTED' };
   const report = await buildReport({ ...options, env, fetchImpl: async url => String(url).includes('custom.example') ? new Response('', { status: 503 }) : healthyFetch(url) });
-  assert.equal(report.services.find(s => s.id === 'client-websites').state, 'outage');
-  assert.ok(report.incidents.some(i => i.title.startsWith('Client websites')));
+  const client = report.services.find(s => s.id === 'client-websites');
+  assert.equal(client.state, 'degraded');
+  assert.match(client.detail, /Custom-domain test: outage; HTTP 503; checked twice/);
+  assert.ok(!report.incidents.some(i => i.title.startsWith('Client websites')));
+});
+
+test('canary samples distinguish partial delivery, all failed paths and unknown coverage', async () => {
+  const env = { CLIENT_SITE_CHECK_URL: 'https://tenant.example', CLIENT_SITE_CONTENT_MARKER: 'EXPECTED', CLIENT_CUSTOM_DOMAIN_CHECK_URL: 'https://custom.example', CLIENT_CUSTOM_DOMAIN_CONTENT_MARKER: 'EXPECTED' };
+  const scenarios = [
+    { name: 'primary works, custom fails', primary: [200], custom: [503], expected: 'degraded' },
+    { name: 'primary fails, custom works', primary: [503], custom: [200], expected: 'degraded' },
+    { name: 'both fail', primary: [503], custom: [503], expected: 'outage' },
+    { name: 'primary recovers, custom fails', primary: [503, 200], custom: [503], expected: 'degraded' },
+    { name: 'primary unverified, custom works', primary: [403], custom: [200], expected: 'unknown' },
+    { name: 'unknown count survives partly working samples', primary: [200], custom: [503], pending: true, expected: 'unknown' },
+  ];
+  for (const scenario of scenarios) {
+    const primary = sequence(...scenario.primary.map(status => ({ status, body: 'EXPECTED' })));
+    const custom = sequence(...scenario.custom.map(status => ({ status, body: 'EXPECTED' })));
+    const report = await buildReport({ ...options, env, fetchImpl: async url => {
+      if (url === env.CLIENT_SITE_CHECK_URL) return primary();
+      if (url === env.CLIENT_CUSTOM_DOMAIN_CHECK_URL) return custom();
+      if (String(url).endsWith('/status/sites')) return scenario.pending
+        ? new Response('{"state":"pending"}') : new Response('', { status: 404 });
+      return healthyFetch(url);
+    } });
+    const client = report.services.find(s => s.id === 'client-websites');
+    assert.equal(client.state, scenario.expected, scenario.name);
+    assert.ok(validateFeed(report, now), scenario.name);
+    if (scenario.custom[0] === 503) assert.match(client.detail, /Custom-domain test: outage; HTTP 503; checked twice/, scenario.name);
+    if (scenario.primary.length === 1 && scenario.primary[0] === 503) assert.match(client.detail, /Test site: outage; HTTP 503; checked twice/, scenario.name);
+    if (scenario.primary[0] === 403) assert.match(client.detail, /Test site: unknown; Probe blocked or rate-limited/, scenario.name);
+  }
 });
 
 test('customer diagnostics identify each role and failure reason without exposing probe inputs', async () => {
@@ -143,7 +174,7 @@ test('customer diagnostics identify each role and failure reason without exposin
       return healthyFetch(url);
     } });
     const client = report.services.find(s => s.id === 'client-websites');
-    assert.equal(client.state, 'outage');
+    assert.equal(client.state, 'degraded');
     assert.ok(validateFeed(report, now), 'Diagnostics must remain valid public feed details');
     assert.ok(client.detail.includes(`${failure.role}: outage; ${failure.reason}; checked twice`), client.detail);
     const healthyRole = failure.role === 'Test site' ? 'Custom-domain test' : 'Test site';
