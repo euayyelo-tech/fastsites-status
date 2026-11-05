@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-11-05T15:09:39.314Z",
+  "checkedAt": "2026-11-05T18:00:16.619Z",
   "services": [
     {
       "id": "website",
@@ -22,8 +22,8 @@
     {
       "id": "billing",
       "name": "Domains & billing",
-      "state": "operational",
-      "detail": "Price list, card payments (Stripe and Paddle) and the domain registrar each answer a read-only question; no payment or registration is made. Every part answered."
+      "state": "degraded",
+      "detail": "Price list, card payments (Stripe and Paddle) and the domain registrar each answer a read-only question; no payment or registration is made. Price list and Domain registrar did not answer; Stripe and Paddle answered."
     },
     {
       "id": "email",
