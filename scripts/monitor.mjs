@@ -230,7 +230,7 @@ export async function buildReport({ env = process.env, updates = { incidents: []
       const reason = result.detail.slice(checks[index].detail.length + 2).replace(/\.$/, '');
       return `${role}: ${result.state}; ${reason}`;
     }).join('. ');
-    clientParts.push({ state, detail: `${custom ? 'Test site and its custom domain' : 'Test site'} checked independently: ${state === 'operational' ? 'expected content confirmed' : 'expected content not confirmed'}. ${diagnostics}` });
+    clientParts.push({ state, detail: `${custom ? 'Customer test site and custom-domain sample' : 'Test site'} checked independently: ${state === 'operational' ? 'expected content confirmed' : 'expected content not confirmed'}. ${diagnostics}` });
   }
   const claims = clientParts.filter(p => !p.noClaim);
   checked.push({ id: 'client-websites', name: 'Client websites', state: worst(claims.length ? claims : clientParts), detail: `${clientParts.map(p => p.detail).join('. ')}.` });
