@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-11-05T00:20:16.213Z",
+  "checkedAt": "2026-11-05T12:39:34.878Z",
   "services": [
     {
       "id": "website",
@@ -10,8 +10,8 @@
     {
       "id": "client-websites",
       "name": "Client websites",
-      "state": "degraded",
-      "detail": "The count of customer websites is not deployed on the live API yet. Test site and its custom domain checked independently: expected content not confirmed. Test site: operational; HTTP 200 and expected content confirmed. Custom-domain test: outage; Expected health response or content not found; checked twice."
+      "state": "operational",
+      "detail": "The count of customer websites is not deployed on the live API yet. Customer test site and custom-domain sample checked independently: expected content confirmed. Test site: operational; HTTP 200 and expected content confirmed. Custom-domain test: operational; HTTP 200 and expected content confirmed."
     },
     {
       "id": "dashboard",
