@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-11-11T10:23:44.084Z",
+  "checkedAt": "2026-11-11T10:28:24.230Z",
   "services": [
     {
       "id": "website",
@@ -40,8 +40,8 @@
     {
       "id": "api",
       "name": "FastSites API",
-      "state": "degraded",
-      "detail": "Public API health endpoint; not every API operation. Initial check failed; retry succeeded."
+      "state": "operational",
+      "detail": "Public API health endpoint; not every API operation. HTTP 200 and expected content confirmed."
     },
     {
       "id": "webmail",
