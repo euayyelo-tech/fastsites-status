@@ -1,17 +1,17 @@
 {
-  "checkedAt": "2026-11-11T00:04:49.419Z",
+  "checkedAt": "2026-11-11T09:24:54.807Z",
   "services": [
     {
       "id": "website",
       "name": "FastSites website",
-      "state": "operational",
-      "detail": "Public website reachability and content. HTTP 200: the public pre-launch page is being served."
+      "state": "outage",
+      "detail": "Public website reachability and content. Public reachability check failed; checked twice."
     },
     {
       "id": "client-websites",
       "name": "Client websites",
-      "state": "operational",
-      "detail": "The count of customer websites is not deployed on the live API yet. Customer test site and custom-domain sample checked independently: expected content confirmed. Test site: operational; HTTP 200 and expected content confirmed. Custom-domain test: operational; HTTP 200 and expected content confirmed."
+      "state": "degraded",
+      "detail": "The count of customer websites is not deployed on the live API yet. Customer test site and custom-domain sample checked independently: expected content not confirmed. Test site: degraded; Initial check failed; retry succeeded. Custom-domain test: operational; HTTP 200 and expected content confirmed."
     },
     {
       "id": "dashboard",
@@ -22,8 +22,8 @@
     {
       "id": "billing",
       "name": "Domains & billing",
-      "state": "operational",
-      "detail": "Price list, card payments (Stripe and Paddle) and the domain registrar each answer a read-only question; no payment or registration is made. Every part answered."
+      "state": "outage",
+      "detail": "Price list, card payments (Stripe and Paddle) and the domain registrar each answer a read-only question; no payment or registration is made. Public reachability check failed; checked twice."
     },
     {
       "id": "email",
@@ -34,14 +34,14 @@
     {
       "id": "fastbot",
       "name": "FastBot assistance",
-      "state": "operational",
-      "detail": "Chat knowledge service responds; the quality of an individual answer is not tested. HTTP 200 and expected content confirmed."
+      "state": "outage",
+      "detail": "Chat knowledge service responds; the quality of an individual answer is not tested. Public reachability check failed; checked twice."
     },
     {
       "id": "api",
       "name": "FastSites API",
-      "state": "operational",
-      "detail": "Public API health endpoint; not every API operation. HTTP 200 and expected content confirmed."
+      "state": "degraded",
+      "detail": "Public API health endpoint; not every API operation. Initial check failed; retry succeeded."
     },
     {
       "id": "webmail",
@@ -50,6 +50,25 @@
       "detail": "Webmail front door content; not mailbox or SMTP delivery. HTTP 200 and expected content confirmed."
     }
   ],
-  "incidents": [],
+  "incidents": [
+    {
+      "title": "FastSites website independent check failed",
+      "date": "2026-11-11T09:24:54.807Z",
+      "state": "investigating",
+      "body": "The independent check failed twice. This indicates a monitored delivery problem, but does not by itself confirm that every customer function is unavailable."
+    },
+    {
+      "title": "Domains & billing independent check failed",
+      "date": "2026-11-11T09:24:54.807Z",
+      "state": "investigating",
+      "body": "The independent check failed twice. This indicates a monitored delivery problem, but does not by itself confirm that every customer function is unavailable."
+    },
+    {
+      "title": "FastBot assistance independent check failed",
+      "date": "2026-11-11T09:24:54.807Z",
+      "state": "investigating",
+      "body": "The independent check failed twice. This indicates a monitored delivery problem, but does not by itself confirm that every customer function is unavailable."
+    }
+  ],
   "maintenance": []
 }
