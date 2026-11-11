@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-11-11T09:34:37.967Z",
+  "checkedAt": "2026-11-11T09:51:08.909Z",
   "services": [
     {
       "id": "website",
@@ -10,14 +10,14 @@
     {
       "id": "client-websites",
       "name": "Client websites",
-      "state": "operational",
-      "detail": "The count of customer websites is not deployed on the live API yet. Customer test site and custom-domain sample checked independently: expected content confirmed. Test site: operational; HTTP 200 and expected content confirmed. Custom-domain test: operational; HTTP 200 and expected content confirmed."
+      "state": "degraded",
+      "detail": "The count of customer websites is not deployed on the live API yet. Customer test site and custom-domain sample checked independently: expected content not confirmed. Test site: degraded; Initial check failed; retry succeeded. Custom-domain test: operational; HTTP 200 and expected content confirmed."
     },
     {
       "id": "dashboard",
       "name": "Dashboard & editor",
-      "state": "operational",
-      "detail": "Sign-in API refuses an unauthenticated request correctly; editing and publishing are not exercised. HTTP 401 and expected content confirmed."
+      "state": "outage",
+      "detail": "Sign-in API refuses an unauthenticated request correctly; editing and publishing are not exercised. Public reachability check failed; checked twice."
     },
     {
       "id": "billing",
@@ -34,14 +34,14 @@
     {
       "id": "fastbot",
       "name": "FastBot assistance",
-      "state": "operational",
-      "detail": "Chat knowledge service responds; the quality of an individual answer is not tested. HTTP 200 and expected content confirmed."
+      "state": "degraded",
+      "detail": "Chat knowledge service responds; the quality of an individual answer is not tested. Initial check failed; retry succeeded."
     },
     {
       "id": "api",
       "name": "FastSites API",
-      "state": "operational",
-      "detail": "Public API health endpoint; not every API operation. HTTP 200 and expected content confirmed."
+      "state": "degraded",
+      "detail": "Public API health endpoint; not every API operation. Initial check failed; retry succeeded."
     },
     {
       "id": "webmail",
@@ -50,6 +50,13 @@
       "detail": "Webmail front door content; not mailbox or SMTP delivery. HTTP 200 and expected content confirmed."
     }
   ],
-  "incidents": [],
+  "incidents": [
+    {
+      "title": "Dashboard & editor independent check failed",
+      "date": "2026-11-11T09:51:08.909Z",
+      "state": "investigating",
+      "body": "The independent check failed twice. This indicates a monitored delivery problem, but does not by itself confirm that every customer function is unavailable."
+    }
+  ],
   "maintenance": []
 }
