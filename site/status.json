@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-11-17T19:31:00.708Z",
+  "checkedAt": "2026-11-17T21:01:07.466Z",
   "services": [
     {
       "id": "website",
@@ -16,8 +16,8 @@
     {
       "id": "dashboard",
       "name": "Dashboard & editor",
-      "state": "operational",
-      "detail": "Sign-in API refuses an unauthenticated request correctly; editing and publishing are not exercised. HTTP 401 and expected content confirmed."
+      "state": "degraded",
+      "detail": "Sign-in API refuses an unauthenticated request correctly; editing and publishing are not exercised. Initial check failed; retry succeeded."
     },
     {
       "id": "billing",
@@ -40,8 +40,8 @@
     {
       "id": "api",
       "name": "FastSites API",
-      "state": "operational",
-      "detail": "Public API health endpoint; not every API operation. HTTP 200 and expected content confirmed."
+      "state": "degraded",
+      "detail": "Public API health endpoint; not every API operation. Initial check failed; retry succeeded."
     },
     {
       "id": "webmail",
