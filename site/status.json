@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-11-20T09:52:35.918Z",
+  "checkedAt": "2026-11-20T09:57:20.472Z",
   "services": [
     {
       "id": "website",
@@ -28,8 +28,8 @@
     {
       "id": "email",
       "name": "Business email",
-      "state": "degraded",
-      "detail": "Mail server accepts IMAP and SMTP connections and greets correctly; delivery of an individual message is not tested. IMAP did not answer correctly; checked twice."
+      "state": "operational",
+      "detail": "Mail server accepts IMAP and SMTP connections and greets correctly; delivery of an individual message is not tested."
     },
     {
       "id": "fastbot",
